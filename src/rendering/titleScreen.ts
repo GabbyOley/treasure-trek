@@ -25,6 +25,7 @@ export function renderTitleScreen(
           <button
             type="button"
             class="menu-button primary"
+            data-action="play-computer"
             aria-label="Play against the computer"
           >
             Play vs Computer
@@ -32,6 +33,7 @@ export function renderTitleScreen(
           <button
             type="button"
             class="menu-button secondary"
+            data-action="play-friend"
             aria-label="Play with a friend"
           >
             Play with a Friend
