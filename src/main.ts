@@ -1,17 +1,11 @@
 import "./style.css";
-import { rollSeededDie } from "./game/rng";
+import { applyMove, createInitialGameState } from "./game/state";
 import { renderTitleScreen } from "./rendering/titleScreen";
-import {
-  CSS_PALETTE,
-  INITIAL_RNG_SEED,
-  TITLE_SCREEN_DIE_SIDES,
-} from "./utils/constants";
+import { CSS_PALETTE } from "./utils/constants";
 
 const root = document.documentElement;
 const app = document.querySelector<HTMLDivElement>("#app")!;
-
-let rngSeed = INITIAL_RNG_SEED;
-let lastRoll: number | null = null;
+let gameState = createInitialGameState();
 
 const cssVars: Record<string, string> = {
   "--color-midnight": CSS_PALETTE.midnight,
@@ -31,7 +25,7 @@ Object.entries(cssVars).forEach(([name, value]) => {
 });
 
 function updateTitleScreen(restoreRollFocus = false): void {
-  renderTitleScreen(app, { lastRoll });
+  renderTitleScreen(app, { lastRoll: gameState.lastRoll });
 
   const rollButton =
     app.querySelector<HTMLButtonElement>('[data-action="roll"]') ?? null;
@@ -41,11 +35,9 @@ function updateTitleScreen(restoreRollFocus = false): void {
   }
 
   rollButton?.addEventListener("click", () => {
-      const nextRoll = rollSeededDie(rngSeed, TITLE_SCREEN_DIE_SIDES);
-      rngSeed = nextRoll.nextSeed;
-      lastRoll = nextRoll.value;
-      updateTitleScreen(true);
-    });
+    gameState = applyMove(gameState, { type: "ROLL_DIE" });
+    updateTitleScreen(true);
+  });
 }
 
 updateTitleScreen();

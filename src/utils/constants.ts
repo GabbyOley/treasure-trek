@@ -27,3 +27,7 @@ export const CSS_PALETTE = {
 export const INITIAL_RNG_SEED = 0x5eed1234;
 
 export const TITLE_SCREEN_DIE_SIDES = 6;
+
+export const FIRST_PLAYER_INDEX = 0;
+
+export const DEFAULT_PLAYER_COUNT = 2;
