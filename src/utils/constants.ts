@@ -106,6 +106,48 @@ export const BOARD_PLACEHOLDER = {
     eventRadius: 0.17,
     eventFloatAmount: 0.015,
   },
+  rotations: {
+    flatMarkerX: Math.PI / 2,
+    trapY: Math.PI / 4,
+  },
+  materials: {
+    table: {
+      roughness: 0.72,
+      metalness: 0.05,
+    },
+    island: {
+      roughness: 0.86,
+      metalness: 0,
+    },
+    grass: {
+      roughness: 0.9,
+      metalness: 0,
+    },
+    space: {
+      roughness: 0.58,
+      metalness: 0.02,
+    },
+    rim: {
+      roughness: 0.52,
+      metalness: 0.08,
+    },
+    coin: {
+      roughness: 0.36,
+      metalness: 0.28,
+    },
+    treasure: {
+      roughness: 0.42,
+      metalness: 0.16,
+    },
+    trap: {
+      roughness: 0.48,
+      metalness: 0.04,
+    },
+    event: {
+      roughness: 0.22,
+      metalness: 0.12,
+    },
+  },
   lights: {
     ambientIntensity: 2.1,
     keyIntensity: 2.6,

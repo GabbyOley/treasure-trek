@@ -148,8 +148,8 @@ function createBoardGroup(): THREE.Group {
     ),
     new THREE.MeshStandardMaterial({
       color: PALETTE.ink,
-      roughness: 0.72,
-      metalness: 0.05,
+      roughness: BOARD_PLACEHOLDER.materials.table.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.table.metalness,
     }),
   );
   table.position.y = BOARD_PLACEHOLDER.table.y;
@@ -165,8 +165,8 @@ function createBoardGroup(): THREE.Group {
     ),
     new THREE.MeshStandardMaterial({
       color: PALETTE.parchment,
-      roughness: 0.86,
-      metalness: 0,
+      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
     }),
   );
   island.scale.set(BOARD_PLACEHOLDER.island.scaleX, 1, BOARD_PLACEHOLDER.island.scaleZ);
@@ -183,8 +183,8 @@ function createBoardGroup(): THREE.Group {
     ),
     new THREE.MeshStandardMaterial({
       color: PALETTE.jungle,
-      roughness: 0.9,
-      metalness: 0,
+      roughness: BOARD_PLACEHOLDER.materials.grass.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.grass.metalness,
     }),
   );
   grass.position.set(
@@ -218,8 +218,8 @@ function createSpace(x: number, z: number, type: SpaceType, index: number): THRE
     ),
     new THREE.MeshStandardMaterial({
       color: style.color,
-      roughness: 0.58,
-      metalness: 0.02,
+      roughness: BOARD_PLACEHOLDER.materials.space.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.space.metalness,
     }),
   );
   base.castShadow = true;
@@ -235,12 +235,12 @@ function createSpace(x: number, z: number, type: SpaceType, index: number): THRE
     ),
     new THREE.MeshStandardMaterial({
       color: PALETTE.ink,
-      roughness: 0.52,
-      metalness: 0.08,
+      roughness: BOARD_PLACEHOLDER.materials.rim.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.rim.metalness,
     }),
   );
   rim.position.y = BOARD_PLACEHOLDER.rim.y;
-  rim.rotation.x = Math.PI / 2;
+  rim.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
   group.add(rim);
 
   addSpaceMarker(group, style.marker, index);
@@ -259,10 +259,14 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
         BOARD_PLACEHOLDER.markers.coinHeight,
         BOARD_PLACEHOLDER.spaces.segments,
       ),
-      new THREE.MeshStandardMaterial({ color: PALETTE.amber, roughness: 0.36, metalness: 0.28 }),
+      new THREE.MeshStandardMaterial({
+        color: PALETTE.amber,
+        roughness: BOARD_PLACEHOLDER.materials.coin.roughness,
+        metalness: BOARD_PLACEHOLDER.materials.coin.metalness,
+      }),
     );
     coin.position.y = markerHeight;
-    coin.rotation.x = Math.PI / 2;
+    coin.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
     coin.castShadow = true;
     group.add(coin);
     return;
@@ -275,7 +279,11 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
         BOARD_PLACEHOLDER.markers.treasureHeight,
         BOARD_PLACEHOLDER.markers.treasureDepth,
       ),
-      new THREE.MeshStandardMaterial({ color: PALETTE.gold, roughness: 0.42, metalness: 0.16 }),
+      new THREE.MeshStandardMaterial({
+        color: PALETTE.gold,
+        roughness: BOARD_PLACEHOLDER.materials.treasure.roughness,
+        metalness: BOARD_PLACEHOLDER.materials.treasure.metalness,
+      }),
     );
     chest.position.y = markerHeight;
     chest.rotation.y = BOARD_PLACEHOLDER.markers.treasureRotationY;
@@ -291,10 +299,14 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
         BOARD_PLACEHOLDER.markers.trapHeight,
         BOARD_PLACEHOLDER.markers.trapSegments,
       ),
-      new THREE.MeshStandardMaterial({ color: PALETTE.coral, roughness: 0.48, metalness: 0.04 }),
+      new THREE.MeshStandardMaterial({
+        color: PALETTE.coral,
+        roughness: BOARD_PLACEHOLDER.materials.trap.roughness,
+        metalness: BOARD_PLACEHOLDER.materials.trap.metalness,
+      }),
     );
     spike.position.y = markerHeight + BOARD_PLACEHOLDER.markers.trapYExtra;
-    spike.rotation.y = Math.PI / 4;
+    spike.rotation.y = BOARD_PLACEHOLDER.rotations.trapY;
     spike.castShadow = true;
     group.add(spike);
     return;
@@ -303,7 +315,11 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
   if (marker === "event") {
     const eventGem = new THREE.Mesh(
       new THREE.OctahedronGeometry(BOARD_PLACEHOLDER.markers.eventRadius),
-      new THREE.MeshStandardMaterial({ color: PALETTE.mist, roughness: 0.22, metalness: 0.12 }),
+      new THREE.MeshStandardMaterial({
+        color: PALETTE.mist,
+        roughness: BOARD_PLACEHOLDER.materials.event.roughness,
+        metalness: BOARD_PLACEHOLDER.materials.event.metalness,
+      }),
     );
     eventGem.position.y =
       markerHeight + Math.sin(index) * BOARD_PLACEHOLDER.markers.eventFloatAmount;
