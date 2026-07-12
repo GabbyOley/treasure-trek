@@ -1,7 +1,13 @@
 import "./style.css";
+import { rollSeededDie } from "./game/rng";
+import { renderTitleScreen } from "./rendering/titleScreen";
 import { CSS_PALETTE } from "./utils/constants";
+import { INITIAL_RNG_SEED, TITLE_SCREEN_DIE_SIDES } from "./utils/constants";
 
 const root = document.documentElement;
+const app = document.querySelector<HTMLDivElement>("#app")!;
+let rngSeed = INITIAL_RNG_SEED;
+let lastRoll: number | null = null;
 
 const cssVars: Record<string, string> = {
   "--color-midnight": CSS_PALETTE.midnight,
@@ -20,18 +26,17 @@ Object.entries(cssVars).forEach(([name, value]) => {
   root.style.setProperty(name, value);
 });
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-  <main class="title-screen">
-    <section class="title-card" aria-label="Treasure Trek title screen">
-      <p class="eyebrow">Set sail for hidden riches</p>
-      <h1>TREASURE TREK</h1>
-      <p class="subtitle">
-        Chart your course, outsmart your rivals, and race to uncover the island's buried fortune.
-      </p>
-      <div class="action-group">
-        <button type="button" class="menu-button primary">Play vs Computer</button>
-        <button type="button" class="menu-button secondary">Play with a Friend</button>
-      </div>
-    </section>
-  </main>
-`;
+function updateTitleScreen(): void {
+  renderTitleScreen(app, { lastRoll });
+
+  app
+    .querySelector<HTMLButtonElement>('[data-action="roll"]')
+    ?.addEventListener("click", () => {
+      const nextRoll = rollSeededDie(rngSeed, TITLE_SCREEN_DIE_SIDES);
+      rngSeed = nextRoll.nextSeed;
+      lastRoll = nextRoll.value;
+      updateTitleScreen();
+    });
+}
+
+updateTitleScreen();

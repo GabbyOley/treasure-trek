@@ -192,6 +192,56 @@ h1 {
   box-shadow: inset 0 1px 0 rgba(255, 247, 232, 0.1);
 }
 
+.menu-button.tertiary {
+  color: var(--color-mist);
+  background:
+    linear-gradient(180deg, rgba(47, 93, 80, 0.95), rgba(18, 57, 91, 0.95));
+  border: 1px solid rgba(224, 184, 92, 0.32);
+  box-shadow:
+    0 12px 28px rgba(11, 34, 57, 0.28),
+    inset 0 1px 0 rgba(255, 247, 232, 0.12);
+}
+
+.roll-panel {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1rem 1.2rem;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 247, 232, 0.08), rgba(255, 247, 232, 0.03)),
+    rgba(8, 22, 36, 0.64);
+  border: 1px solid rgba(242, 225, 182, 0.16);
+}
+
+.roll-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.18rem;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+
+.roll-value {
+  display: block;
+  margin-top: 0.55rem;
+  min-height: 4rem;
+  font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-weight: 700;
+}
+
+.roll-value.is-idle {
+  font-size: clamp(1.05rem, 4vw, 1.3rem);
+  line-height: 1.35;
+  color: var(--color-mist);
+}
+
+.roll-value.is-rolled {
+  font-size: clamp(3rem, 16vw, 5.5rem);
+  line-height: 1;
+  color: var(--color-gold);
+  text-shadow:
+    0 4px 0 rgba(11, 34, 57, 0.55),
+    0 12px 20px rgba(0, 0, 0, 0.28);
+}
+
 @media (max-width: 480px) {
   .title-screen {
     padding: 16px;
@@ -212,5 +262,13 @@ h1 {
 
   .menu-button {
     width: 100%;
+  }
+
+  .roll-panel {
+    padding-inline: 0.9rem;
+  }
+
+  .roll-label {
+    letter-spacing: 0.14rem;
   }
 }

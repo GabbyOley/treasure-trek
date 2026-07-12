@@ -23,3 +23,7 @@ export const CSS_PALETTE = {
   mist: "#fff7e8",
   ink: "#1d160d",
 } as const;
+
+export const INITIAL_RNG_SEED = 0x5eed1234;
+
+export const TITLE_SCREEN_DIE_SIDES = 6;
