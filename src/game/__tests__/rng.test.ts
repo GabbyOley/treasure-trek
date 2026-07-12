@@ -2,43 +2,30 @@ import { describe, expect, it } from "vitest";
 
 import { rollSeededDie, stepSeededRng } from "../rng";
 
+function collectSequence(seed: number, length: number): number[] {
+  let currentSeed = seed;
+
+  return Array.from({ length }, () => {
+    const step = stepSeededRng(currentSeed);
+    currentSeed = step.nextSeed;
+    return step.value;
+  });
+}
+
 describe("stepSeededRng", () => {
   it("returns the same sequence for the same seed", () => {
-    let firstSeed = 12345;
-    let secondSeed = 12345;
-    const firstSequence: number[] = [];
-    const secondSequence: number[] = [];
+    const leftSequence = collectSequence(12345, 6);
+    const rightSequence = collectSequence(12345, 6);
 
-    for (let index = 0; index < 5; index += 1) {
-      const firstStep = stepSeededRng(firstSeed);
-      const secondStep = stepSeededRng(secondSeed);
-
-      firstSeed = firstStep.nextSeed;
-      secondSeed = secondStep.nextSeed;
-      firstSequence.push(firstStep.value);
-      secondSequence.push(secondStep.value);
-    }
-
-    expect(firstSequence).toEqual(secondSequence);
+    expect(leftSequence).toEqual(rightSequence);
+    expect(leftSequence.every((value) => value >= 0 && value < 1)).toBe(true);
   });
 
-  it("returns a different sequence for different seeds", () => {
-    let firstSeed = 12345;
-    let secondSeed = 67890;
-    const firstSequence: number[] = [];
-    const secondSequence: number[] = [];
+  it("returns a different sequence for a different seed", () => {
+    const leftSequence = collectSequence(12345, 6);
+    const rightSequence = collectSequence(54321, 6);
 
-    for (let index = 0; index < 5; index += 1) {
-      const firstStep = stepSeededRng(firstSeed);
-      const secondStep = stepSeededRng(secondSeed);
-
-      firstSeed = firstStep.nextSeed;
-      secondSeed = secondStep.nextSeed;
-      firstSequence.push(firstStep.value);
-      secondSequence.push(secondStep.value);
-    }
-
-    expect(firstSequence).not.toEqual(secondSequence);
+    expect(leftSequence).not.toEqual(rightSequence);
   });
 });
 

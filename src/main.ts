@@ -1,11 +1,15 @@
 import "./style.css";
 import { rollSeededDie } from "./game/rng";
 import { renderTitleScreen } from "./rendering/titleScreen";
-import { CSS_PALETTE } from "./utils/constants";
-import { INITIAL_RNG_SEED, TITLE_SCREEN_DIE_SIDES } from "./utils/constants";
+import {
+  CSS_PALETTE,
+  INITIAL_RNG_SEED,
+  TITLE_SCREEN_DIE_SIDES,
+} from "./utils/constants";
 
 const root = document.documentElement;
 const app = document.querySelector<HTMLDivElement>("#app")!;
+
 let rngSeed = INITIAL_RNG_SEED;
 let lastRoll: number | null = null;
 

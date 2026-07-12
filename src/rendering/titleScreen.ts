@@ -10,8 +10,7 @@ export function renderTitleScreen(
   const rollResult = hasRoll
     ? String(viewModel.lastRoll)
     : "Tap Roll to reveal your first die.";
-  const resultLabel =
-    hasRoll ? "Latest roll" : "Ready to roll";
+  const resultLabel = hasRoll ? "Latest roll" : "Ready to roll";
   const resultClassName = hasRoll ? "roll-value is-rolled" : "roll-value is-idle";
 
   container.innerHTML = `
@@ -25,7 +24,12 @@ export function renderTitleScreen(
         <div class="action-group">
           <button type="button" class="menu-button primary">Play vs Computer</button>
           <button type="button" class="menu-button secondary">Play with a Friend</button>
-          <button type="button" class="menu-button tertiary" data-action="roll" aria-label="Roll one six-sided die">
+          <button
+            type="button"
+            class="menu-button tertiary"
+            data-action="roll"
+            aria-label="Roll one six-sided die"
+          >
             Roll
           </button>
         </div>
