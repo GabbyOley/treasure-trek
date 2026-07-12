@@ -1,11 +1,13 @@
 import "./style.css";
 import { applyMove, createInitialGameState } from "./game/state";
+import { renderBoardScreen, type BoardScreenView } from "./rendering/boardScreen";
 import { renderTitleScreen } from "./rendering/titleScreen";
 import { CSS_PALETTE } from "./utils/constants";
 
 const root = document.documentElement;
 const app = document.querySelector<HTMLDivElement>("#app")!;
 let gameState = createInitialGameState();
+let boardScreen: BoardScreenView | null = null;
 
 const cssVars: Record<string, string> = {
   "--color-midnight": CSS_PALETTE.midnight,
@@ -25,10 +27,15 @@ Object.entries(cssVars).forEach(([name, value]) => {
 });
 
 function updateTitleScreen(restoreRollFocus = false): void {
+  boardScreen?.destroy();
+  boardScreen = null;
   renderTitleScreen(app, { lastRoll: gameState.lastRoll });
 
   const rollButton =
     app.querySelector<HTMLButtonElement>('[data-action="roll"]') ?? null;
+  const playButtons = app.querySelectorAll<HTMLButtonElement>(
+    '[data-action="play-computer"], [data-action="play-friend"]',
+  );
 
   if (restoreRollFocus) {
     rollButton?.focus();
@@ -38,6 +45,21 @@ function updateTitleScreen(restoreRollFocus = false): void {
     gameState = applyMove(gameState, { type: "ROLL_DIE" });
     updateTitleScreen(true);
   });
+
+  playButtons.forEach((button) => {
+    button.addEventListener("click", showBoardScreen);
+  });
+}
+
+function showBoardScreen(): void {
+  boardScreen?.destroy();
+  boardScreen = renderBoardScreen(app);
+
+  app
+    .querySelector<HTMLButtonElement>('[data-action="back-title"]')
+    ?.addEventListener("click", () => {
+      updateTitleScreen();
+    });
 }
 
 updateTitleScreen();
