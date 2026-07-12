@@ -1,0 +1,36 @@
+name: Purity
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+jobs:
+  purity:
+    name: purity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: src/game must be pure (no three, no DOM, no unseeded RNG)
+        run: |
+          set -e
+          if [ ! -d src/game ]; then
+            echo "src/game/ does not exist yet — nothing to check."
+            exit 0
+          fi
+          fail=0
+          if grep -rnE "from ['\"]three['\"]|require\(['\"]three['\"]\)" src/game/; then
+            echo "::error::src/game/ imports 'three'. Rendering belongs in src/rendering/."
+            fail=1
+          fi
+          if grep -rnE "\b(window|document|localStorage|sessionStorage|navigator)\b" src/game/; then
+            echo "::error::src/game/ touches the DOM. It must run in plain Node."
+            fail=1
+          fi
+          if grep -rnE "Math\.random\(\)|Date\.now\(\)" src/game/; then
+            echo "::error::src/game/ uses unseeded randomness or wall-clock time. This desyncs two-player games. Use a seeded RNG carried in game state."
+            fail=1
+          fi
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "src/game/ is pure."
