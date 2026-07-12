@@ -16,12 +16,22 @@ jobs:
       github.event.pull_request.draft == false
     steps:
       - name: Approve
-        run: gh pr review --approve "$PR_URL"
+        run: |
+          if gh pr review --approve "$PR_URL"; then
+            echo "Approval submitted."
+          else
+            echo "Approval attempt failed; continuing without failing the workflow."
+          fi
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge
-        run: gh pr merge --squash --auto --delete-branch "$PR_URL"
+        run: |
+          if gh pr merge --squash --auto --delete-branch "$PR_URL"; then
+            echo "Auto-merge enabled."
+          else
+            echo "Auto-merge could not be enabled yet; leaving workflow green."
+          fi
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
