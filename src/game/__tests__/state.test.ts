@@ -4,6 +4,7 @@ import {
   DEFAULT_PLAYER_COUNT,
   FIRST_PLAYER_INDEX,
   INITIAL_RNG_SEED,
+  TITLE_SCREEN_DIE_SIDES,
 } from "../../utils/constants";
 import { applyMove, createInitialGameState, type GameState } from "../state";
 
@@ -35,7 +36,7 @@ describe("game state", () => {
 
     expect(nextState.lastRoll).not.toBeNull();
     expect(nextState.lastRoll).toBeGreaterThanOrEqual(1);
-    expect(nextState.lastRoll).toBeLessThanOrEqual(6);
+    expect(nextState.lastRoll).toBeLessThanOrEqual(TITLE_SCREEN_DIE_SIDES);
   });
 
   it("applying a roll move advances the seed", () => {
