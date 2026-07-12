@@ -113,6 +113,17 @@ export const BOARD_PLACEHOLDER = {
     segments: 24,
     y: 0.86,
     stepMs: 180,
+    activeScale: 1.14,
+    inactiveScale: 0.92,
+    activeRingRadius: 0.3,
+    activeRingTubeRadius: 0.025,
+    activeRingY: -0.34,
+    colors: [PALETTE.gold, PALETTE.tide],
+    fallbackOffset: { x: 0, z: 0 },
+    offsets: [
+      { x: -0.12, z: -0.12 },
+      { x: 0.12, z: 0.12 },
+    ],
   },
   choiceHighlight: {
     radius: 0.48,
