@@ -14,16 +14,24 @@ export type GamePhase =
   | "choosingBranch"
   | "movementComplete";
 
+export type PlayerState = {
+  id: string;
+  name: string;
+  positionId: string;
+};
+
 export type GameState = {
   seed: number;
   lastRoll: number | null;
   currentPlayerIndex: number;
   playerCount: number;
   phase: GamePhase;
-  playerPositionId: string;
+  players: PlayerState[];
   pendingMovement: number;
   availableBranchSpaceIds: string[];
   movementPath: string[];
+  movingPlayerIndex: number;
+  lastTurnSummary: string | null;
 };
 
 export type Move =
@@ -42,16 +50,20 @@ export type Move =
     };
 
 export function createInitialGameState(): GameState {
+  const players = createInitialPlayers(DEFAULT_PLAYER_COUNT);
+
   return {
     seed: INITIAL_RNG_SEED,
     lastRoll: null,
     currentPlayerIndex: FIRST_PLAYER_INDEX,
-    playerCount: DEFAULT_PLAYER_COUNT,
+    playerCount: players.length,
     phase: "title",
-    playerPositionId: START_SPACE_ID,
+    players,
     pendingMovement: 0,
     availableBranchSpaceIds: [],
     movementPath: [],
+    movingPlayerIndex: FIRST_PLAYER_INDEX,
+    lastTurnSummary: null,
   };
 }
 
@@ -63,10 +75,13 @@ export function applyMove(state: GameState, move: Move): GameState {
         seed: INITIAL_RNG_SEED,
         lastRoll: null,
         phase: "waitingToRoll",
-        playerPositionId: START_SPACE_ID,
+        players: createInitialPlayers(state.playerCount),
+        currentPlayerIndex: FIRST_PLAYER_INDEX,
+        movingPlayerIndex: FIRST_PLAYER_INDEX,
         pendingMovement: 0,
         availableBranchSpaceIds: [],
         movementPath: [],
+        lastTurnSummary: null,
       };
 
     case "EXIT_TO_TITLE":
@@ -76,9 +91,14 @@ export function applyMove(state: GameState, move: Move): GameState {
         pendingMovement: 0,
         availableBranchSpaceIds: [],
         movementPath: [],
+        movingPlayerIndex: state.currentPlayerIndex,
       };
 
     case "ROLL_DIE": {
+      if (state.phase !== "title" && state.phase !== "waitingToRoll") {
+        return state;
+      }
+
       const roll = rollSeededDie(state.seed, TITLE_SCREEN_DIE_SIDES);
 
       const rolledState = {
@@ -86,6 +106,8 @@ export function applyMove(state: GameState, move: Move): GameState {
         seed: roll.nextSeed,
         lastRoll: roll.value,
         movementPath: [],
+        movingPlayerIndex: state.currentPlayerIndex,
+        lastTurnSummary: null,
       };
 
       if (state.phase === "title") {
@@ -111,7 +133,11 @@ export function applyMove(state: GameState, move: Move): GameState {
       return continueMovement({
         ...state,
         phase: "moving",
-        playerPositionId: move.spaceId,
+        players: updatePlayerPosition(
+          state.players,
+          state.currentPlayerIndex,
+          move.spaceId,
+        ),
         pendingMovement: state.pendingMovement - 1,
         availableBranchSpaceIds: [],
         movementPath: [move.spaceId],
@@ -123,15 +149,15 @@ function continueMovement(state: GameState): GameState {
   let currentState = state;
 
   while (currentState.pendingMovement > 0) {
-    const currentSpace = getBoardSpace(currentState.playerPositionId);
+    const activePlayer = currentState.players[currentState.currentPlayerIndex];
+    const currentSpace = getBoardSpace(activePlayer?.positionId ?? START_SPACE_ID);
 
     if (currentSpace === undefined || currentSpace.nextSpaceIds.length === 0) {
-      return {
+      return finishTurn({
         ...currentState,
-        phase: "movementComplete",
         pendingMovement: 0,
         availableBranchSpaceIds: [],
-      };
+      });
     }
 
     if (currentSpace.nextSpaceIds.length > 1) {
@@ -145,15 +171,60 @@ function continueMovement(state: GameState): GameState {
     const [nextSpaceId] = currentSpace.nextSpaceIds;
     currentState = {
       ...currentState,
-      playerPositionId: nextSpaceId,
+      players: updatePlayerPosition(
+        currentState.players,
+        currentState.currentPlayerIndex,
+        nextSpaceId,
+      ),
       pendingMovement: currentState.pendingMovement - 1,
       movementPath: [...currentState.movementPath, nextSpaceId],
     };
   }
 
-  return {
+  return finishTurn({
     ...currentState,
-    phase: "movementComplete",
     availableBranchSpaceIds: [],
+  });
+}
+
+function createInitialPlayers(playerCount: number): PlayerState[] {
+  return Array.from({ length: playerCount }, (_, index) => ({
+    id: `player-${index + 1}`,
+    name: `Player ${index + 1}`,
+    positionId: START_SPACE_ID,
+  }));
+}
+
+function updatePlayerPosition(
+  players: readonly PlayerState[],
+  playerIndex: number,
+  positionId: string,
+): PlayerState[] {
+  return players.map((player, index) => {
+    if (index !== playerIndex) {
+      return player;
+    }
+
+    return {
+      ...player,
+      positionId,
+    };
+  });
+}
+
+function finishTurn(state: GameState): GameState {
+  const movingPlayer = state.players[state.currentPlayerIndex];
+  const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.playerCount;
+  const landedSpace = getBoardSpace(movingPlayer?.positionId ?? START_SPACE_ID);
+  const landedName = landedSpace?.name ?? "the board";
+
+  return {
+    ...state,
+    phase: "waitingToRoll",
+    pendingMovement: 0,
+    availableBranchSpaceIds: [],
+    movingPlayerIndex: state.currentPlayerIndex,
+    currentPlayerIndex: nextPlayerIndex,
+    lastTurnSummary: `${movingPlayer?.name ?? "Player"} landed on ${landedName}.`,
   };
 }

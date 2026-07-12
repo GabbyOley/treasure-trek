@@ -29,11 +29,41 @@ describe("game state", () => {
       currentPlayerIndex: FIRST_PLAYER_INDEX,
       playerCount: DEFAULT_PLAYER_COUNT,
       phase: "title",
-      playerPositionId: START_SPACE_ID,
+      players: [
+        {
+          id: "player-1",
+          name: "Player 1",
+          positionId: START_SPACE_ID,
+        },
+        {
+          id: "player-2",
+          name: "Player 2",
+          positionId: START_SPACE_ID,
+        },
+      ],
       pendingMovement: 0,
       availableBranchSpaceIds: [],
       movementPath: [],
+      movingPlayerIndex: FIRST_PLAYER_INDEX,
+      lastTurnSummary: null,
     });
+  });
+
+  it("initial 2-player state starts both players at Start", () => {
+    const state = createInitialGameState();
+
+    expect(state.players).toHaveLength(2);
+    expect(state.players.map((player) => player.positionId)).toEqual([
+      START_SPACE_ID,
+      START_SPACE_ID,
+    ]);
+  });
+
+  it("active player starts as Player 1", () => {
+    const state = createInitialGameState();
+
+    expect(state.currentPlayerIndex).toBe(0);
+    expect(state.players[state.currentPlayerIndex]?.name).toBe("Player 1");
   });
 
   it("applying a roll move updates lastRoll", () => {
@@ -58,7 +88,7 @@ describe("game state", () => {
     expect(firstRolls).toEqual(secondRolls);
   });
 
-  it("keeps current player and player count stable after rolling for now", () => {
+  it("keeps current player and player count stable for title-screen rolls", () => {
     const initialState = createInitialGameState();
     const nextState = applyMove(initialState, { type: "ROLL_DIE" });
 
@@ -96,9 +126,9 @@ describe("game state", () => {
       { type: "ROLL_DIE" },
     );
 
-    expect(nextState.playerPositionId).toBe("camp-coin");
+    expect(nextState.players[0]?.positionId).toBe("camp-coin");
     expect(nextState.movementPath).toEqual(["camp-coin"]);
-    expect(nextState.phase).toBe("movementComplete");
+    expect(nextState.phase).toBe("waitingToRoll");
   });
 
   it("movement pauses when a branch is reached with movement remaining", () => {
@@ -108,7 +138,7 @@ describe("game state", () => {
     };
     const nextState = applyMove(boardState, { type: "ROLL_DIE" });
 
-    expect(nextState.playerPositionId).toBe("camp-fork");
+    expect(nextState.players[0]?.positionId).toBe("camp-fork");
     expect(nextState.phase).toBe("choosingBranch");
     expect(nextState.pendingMovement).toBeGreaterThan(0);
   });
@@ -134,9 +164,9 @@ describe("game state", () => {
       spaceId: "field-entry",
     });
 
-    expect(nextState.playerPositionId).not.toBe("camp-fork");
+    expect(nextState.players[0]?.positionId).not.toBe("camp-fork");
     expect(nextState.availableBranchSpaceIds).toEqual([]);
-    expect(nextState.phase).toBe("movementComplete");
+    expect(nextState.phase).toBe("waitingToRoll");
   });
 
   it("movement cannot choose an invalid branch", () => {
@@ -169,8 +199,91 @@ describe("game state", () => {
     const firstResult = playTurn();
     const secondResult = playTurn();
 
-    expect(firstResult.playerPositionId).toBe(secondResult.playerPositionId);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
     expect(firstResult.lastRoll).toBe(secondResult.lastRoll);
     expect(firstResult.seed).toBe(secondResult.seed);
+  });
+
+  it("only the active player moves after a roll", () => {
+    const boardState = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+    const nextState = applyMove(boardState, { type: "ROLL_DIE" });
+
+    expect(nextState.players[0]?.positionId).toBe("camp-event");
+    expect(nextState.players[1]?.positionId).toBe(START_SPACE_ID);
+  });
+
+  it("ending movement advances the turn", () => {
+    const boardState = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+    const nextState = applyMove(boardState, { type: "ROLL_DIE" });
+
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.players[nextState.currentPlayerIndex]?.name).toBe("Player 2");
+  });
+
+  it("branch choice does not advance the turn until movement is complete", () => {
+    const branchState = applyMove(
+      {
+        ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+        seed: 2,
+      },
+      { type: "ROLL_DIE" },
+    );
+
+    expect(branchState.phase).toBe("choosingBranch");
+    expect(branchState.currentPlayerIndex).toBe(0);
+
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "field-entry",
+    });
+
+    expect(nextState.phase).toBe("waitingToRoll");
+    expect(nextState.currentPlayerIndex).toBe(1);
+  });
+
+  it("turn order alternates Player 1 to Player 2 to Player 1", () => {
+    const playerOneDone = applyMove(
+      applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      { type: "ROLL_DIE" },
+    );
+    const playerTwoDone = applyMove({ ...playerOneDone, seed: 7 }, { type: "ROLL_DIE" });
+
+    expect(playerOneDone.currentPlayerIndex).toBe(1);
+    expect(playerTwoDone.currentPlayerIndex).toBe(0);
+  });
+
+  it("rolling is not legal while branch choice is pending", () => {
+    const branchState = applyMove(
+      {
+        ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+        seed: 2,
+      },
+      { type: "ROLL_DIE" },
+    );
+    const nextState = applyMove(branchState, { type: "ROLL_DIE" });
+
+    expect(nextState).toBe(branchState);
+  });
+
+  it("same seed plus same choices produces deterministic positions and turn order", () => {
+    const playRound = (): GameState => {
+      const entered = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+      const playerOneBranch = applyMove({ ...entered, seed: 2 }, { type: "ROLL_DIE" });
+      const playerTwoTurn = applyMove(playerOneBranch, {
+        type: "CHOOSE_BRANCH",
+        spaceId: "cave-mouth",
+      });
+
+      return applyMove(playerTwoTurn, { type: "ROLL_DIE" });
+    };
+    const firstResult = playRound();
+    const secondResult = playRound();
+
+    expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
   });
 });

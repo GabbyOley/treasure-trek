@@ -16,6 +16,11 @@ type SpaceStyle = {
   marker: "none" | "coin" | "treasure" | "trap" | "event" | "action";
 };
 
+type PlayerPieceView = {
+  group: THREE.Group;
+  activeRing: THREE.Mesh;
+};
+
 const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
   blank: {
     color: PALETTE.parchment,
@@ -120,7 +125,9 @@ export function renderBoardScreen(
   const updateHud = (nextState: GameState): void => {
     status.textContent = getBoardStatusText(nextState);
     roll.textContent =
-      nextState.lastRoll === null ? "No board roll yet." : `Last roll: ${nextState.lastRoll}`;
+      nextState.lastRoll === null
+        ? "No board roll yet."
+        : `${getMovingPlayerName(nextState)} rolled ${nextState.lastRoll}.`;
     rollButton.disabled =
       nextState.phase === "moving" || nextState.phase === "choosingBranch";
     choices.innerHTML = renderBranchChoices(nextState);
@@ -185,23 +192,50 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   container.append(renderer.domElement);
 
   const board = createBoardGroup();
-  const player = createPlayerPiece();
+  const playerPieces = state.players.map((_, index) => createPlayerPiece(index));
   const choiceHighlights = new THREE.Group();
-  board.add(player, choiceHighlights);
+  playerPieces.forEach((piece) => {
+    board.add(piece.group);
+  });
+  board.add(choiceHighlights);
   scene.add(board);
   addLights(scene);
   let movementTimer = 0;
 
-  const placePlayer = (spaceId: string): void => {
+  const placePlayer = (playerIndex: number, spaceId: string): void => {
     const playerSpace = getBoardSpace(spaceId);
+    const piece = playerPieces[playerIndex];
+    const offset =
+      BOARD_PLACEHOLDER.player.offsets[playerIndex] ??
+      BOARD_PLACEHOLDER.player.fallbackOffset;
 
-    if (playerSpace !== undefined) {
-      player.position.set(
+    if (playerSpace !== undefined && piece !== undefined) {
+      piece.group.position.set(
         playerSpace.position.x,
         BOARD_PLACEHOLDER.player.y,
         playerSpace.position.z,
       );
+      piece.group.position.x += offset.x;
+      piece.group.position.z += offset.z;
     }
+  };
+
+  const placeAllPlayers = (nextState: GameState): void => {
+    nextState.players.forEach((player, index) => {
+      placePlayer(index, player.positionId);
+    });
+  };
+
+  const updateActivePlayerStyles = (nextState: GameState): void => {
+    playerPieces.forEach((piece, index) => {
+      const isActive = index === nextState.currentPlayerIndex;
+      const scale = isActive
+        ? BOARD_PLACEHOLDER.player.activeScale
+        : BOARD_PLACEHOLDER.player.inactiveScale;
+
+      piece.group.scale.setScalar(scale);
+      piece.activeRing.visible = isActive;
+    });
   };
 
   const updateChoiceHighlights = (nextState: GameState): void => {
@@ -224,12 +258,13 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     const spaceId = path[pathIndex];
 
     if (spaceId === undefined) {
-      placePlayer(nextState.playerPositionId);
+      placeAllPlayers(nextState);
+      updateActivePlayerStyles(nextState);
       updateChoiceHighlights(nextState);
       return;
     }
 
-    placePlayer(spaceId);
+    placePlayer(nextState.movingPlayerIndex, spaceId);
     movementTimer = window.setTimeout(() => {
       animateMovementPath(nextState, path, pathIndex + 1);
     }, BOARD_PLACEHOLDER.player.stepMs);
@@ -237,6 +272,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
 
   const update = (nextState: GameState): void => {
     window.clearTimeout(movementTimer);
+    updateActivePlayerStyles(nextState);
     updateChoiceHighlights({
       ...nextState,
       availableBranchSpaceIds: [],
@@ -247,7 +283,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       return;
     }
 
-    placePlayer(nextState.playerPositionId);
+    placeAllPlayers(nextState);
     updateChoiceHighlights(nextState);
   };
   update(state);
@@ -294,7 +330,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   };
 }
 
-function createPlayerPiece(): THREE.Group {
+function createPlayerPiece(playerIndex: number): PlayerPieceView {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.CapsuleGeometry(
@@ -304,7 +340,7 @@ function createPlayerPiece(): THREE.Group {
       BOARD_PLACEHOLDER.player.segments,
     ),
     new THREE.MeshStandardMaterial({
-      color: PALETTE.gold,
+      color: getPlayerColor(playerIndex),
       roughness: BOARD_PLACEHOLDER.materials.player.roughness,
       metalness: BOARD_PLACEHOLDER.materials.player.metalness,
     }),
@@ -312,7 +348,32 @@ function createPlayerPiece(): THREE.Group {
   body.castShadow = true;
   group.add(body);
 
-  return group;
+  const activeRing = new THREE.Mesh(
+    new THREE.TorusGeometry(
+      BOARD_PLACEHOLDER.player.activeRingRadius,
+      BOARD_PLACEHOLDER.player.activeRingTubeRadius,
+      BOARD_PLACEHOLDER.rim.radialSegments,
+      BOARD_PLACEHOLDER.rim.tubularSegments,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.mist,
+      emissive: PALETTE.gold,
+      roughness: BOARD_PLACEHOLDER.materials.choiceHighlight.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.choiceHighlight.metalness,
+    }),
+  );
+  activeRing.position.y = BOARD_PLACEHOLDER.player.activeRingY;
+  activeRing.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
+  group.add(activeRing);
+
+  return {
+    group,
+    activeRing,
+  };
+}
+
+function getPlayerColor(playerIndex: number): number {
+  return BOARD_PLACEHOLDER.player.colors[playerIndex] ?? PALETTE.gold;
 }
 
 function createChoiceHighlight(space: BoardSpace): THREE.Mesh {
@@ -631,28 +692,41 @@ function renderRegionSummaries(): string {
 }
 
 function getBoardStatusText(state: GameState): string {
-  const currentSpace = getBoardSpace(state.playerPositionId);
-  const spaceName = currentSpace?.name ?? "the board";
+  const activePlayer = state.players[state.currentPlayerIndex];
+  const movingPlayer = state.players[state.movingPlayerIndex] ?? activePlayer;
+  const activeSpace = getBoardSpace(activePlayer?.positionId ?? "");
+  const movingSpace = getBoardSpace(movingPlayer?.positionId ?? "");
+  const activeSpaceName = activeSpace?.name ?? "the board";
+  const movingSpaceName = movingSpace?.name ?? "the board";
+  const activeName = activePlayer?.name ?? "Player";
+  const movingName = movingPlayer?.name ?? "Player";
 
   if (state.phase === "waitingToRoll") {
-    return `Waiting to roll. Your explorer is on ${spaceName}.`;
+    const prefix =
+      state.lastTurnSummary === null ? "" : `${state.lastTurnSummary} `;
+
+    return `${prefix}${activeName}'s turn. Waiting to roll on ${activeSpaceName}.`;
   }
 
   if (state.phase === "moving") {
-    return `Moving with ${state.pendingMovement} step left.`;
+    return `${movingName} is moving with ${state.pendingMovement} step left.`;
   }
 
   if (state.phase === "choosingBranch") {
     const stepLabel = state.pendingMovement === 1 ? "step remains" : "steps remain";
 
-    return `Choose a route from ${spaceName}. ${state.pendingMovement} ${stepLabel} from this roll.`;
+    return `${movingName}, choose a route from ${movingSpaceName}. ${state.pendingMovement} ${stepLabel} from this roll.`;
   }
 
   if (state.phase === "movementComplete") {
-    return `Landed on ${spaceName}. Roll again when you are ready.`;
+    return `${movingName} landed on ${movingSpaceName}.`;
   }
 
   return "Ready for the adventure.";
+}
+
+function getMovingPlayerName(state: GameState): string {
+  return state.players[state.movingPlayerIndex]?.name ?? "Player";
 }
 
 function renderBranchChoices(state: GameState): string {
