@@ -1,0 +1,64 @@
+name: Codex Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  gate:
+    name: codex-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate Codex review state
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # All reviews on this PR, newest last.
+          reviews=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate)
+
+          # Did Codex review at all yet?
+          codex_count=$(echo "$reviews" | jq '[.[] | select(.user.login | test("codex"; "i"))] | length')
+
+          if [ "$codex_count" -eq 0 ]; then
+            echo "No Codex review yet — gate stays RED so auto-merge waits."
+            echo "::error::Waiting for Codex review."
+            exit 1
+          fi
+
+          # The most recent Codex review's state.
+          latest=$(echo "$reviews" \
+            | jq -r '[.[] | select(.user.login | test("codex"; "i"))] | last | .state')
+          echo "Latest Codex review state: $latest"
+
+          case "$latest" in
+            APPROVED|COMMENTED)
+              # A Codex review with NO unresolved P0/P1 comments = clean.
+              open_comments=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
+                | jq '[.[] | select(.user.login | test("codex"; "i"))
+                            | select(.body | test("P0|P1"))] | length')
+              if [ "$open_comments" -gt 0 ]; then
+                echo "::error::Codex flagged $open_comments P0/P1 issue(s). Gate stays RED."
+                exit 1
+              fi
+              echo "Codex review is clean. Gate GREEN."
+              ;;
+            CHANGES_REQUESTED)
+              echo "::error::Codex requested changes. Gate stays RED."
+              exit 1
+              ;;
+            *)
+              echo "::error::Unrecognized review state: $latest"
+              exit 1
+              ;;
+          esac

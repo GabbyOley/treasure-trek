@@ -71,3 +71,10 @@ src/
 - Flag missing aria-labels on interactive elements as P1.
 - Keep reviews short and in plain English. This repo is maintained by a
   beginner — explain what is wrong and WHY it matters, not just what to change.
+
+## Pull requests
+
+- Open PRs normally (NOT as drafts).
+- When asked to fix review findings, push commits to the EXISTING branch. Never
+  open a second PR for a fix.
+- Make the smallest change that resolves each finding. Do not refactor unrelated code.
