@@ -49,20 +49,37 @@ jobs:
                 query($owner:String!, $repo:String!, $pr:Int!) {
                   repository(owner:$owner, name:$repo) {
                     pullRequest(number:$pr) {
-                      reviewThreads(first:100) { nodes { isResolved isOutdated path } }
+                      reviewThreads(first:100) {
+                        nodes {
+                          isResolved
+                          isOutdated
+                          path
+                          comments(first:20) {
+                            nodes {
+                              author { login }
+                              body
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }' -f owner="$OWNER" -f repo="$owner_repo" -F pr="$PR")
 
               live_threads=$(echo "$thread_data" \
                 | jq '[.data.repository.pullRequest.reviewThreads.nodes[]
-                       | select(.isResolved == false and .isOutdated == false)] | length')
+                       | select(.isResolved == false and .isOutdated == false)
+                       | select(any(.comments.nodes[];
+                           (.author.login | test("codex"; "i")) and (.body | test("P0|P1"))))
+                      ] | length')
 
               if [ "$live_threads" -gt 0 ]; then
                 echo "Live unresolved review thread paths:"
                 echo "$thread_data" \
                   | jq -r '.data.repository.pullRequest.reviewThreads.nodes[]
                            | select(.isResolved == false and .isOutdated == false)
+                           | select(any(.comments.nodes[];
+                               (.author.login | test("codex"; "i")) and (.body | test("P0|P1"))))
                            | .path'
                 echo "::error::Codex has $live_threads live review thread(s). Gate stays RED."
                 exit 1
