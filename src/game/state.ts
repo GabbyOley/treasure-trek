@@ -1,10 +1,12 @@
 import {
   DEFAULT_PLAYER_COUNT,
   FIRST_PLAYER_INDEX,
+  COIN_SPACE_REWARD,
+  INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   TITLE_SCREEN_DIE_SIDES,
 } from "../utils/constants";
-import { getBoardSpace, START_SPACE_ID } from "./board";
+import { getBoardSpace, START_SPACE_ID, type BoardSpaceType } from "./board";
 import { rollSeededDie } from "./rng";
 
 export type GamePhase =
@@ -18,6 +20,15 @@ export type PlayerState = {
   id: string;
   name: string;
   positionId: string;
+  coins: number;
+};
+
+export type LandingEffect = {
+  playerIndex: number;
+  spaceId: string;
+  spaceType: BoardSpaceType;
+  message: string;
+  coinDelta: number;
 };
 
 export type GameState = {
@@ -32,6 +43,7 @@ export type GameState = {
   movementPath: string[];
   movingPlayerIndex: number;
   lastTurnSummary: string | null;
+  lastLandingEffect: LandingEffect | null;
 };
 
 export type Move =
@@ -64,6 +76,7 @@ export function createInitialGameState(): GameState {
     movementPath: [],
     movingPlayerIndex: FIRST_PLAYER_INDEX,
     lastTurnSummary: null,
+    lastLandingEffect: null,
   };
 }
 
@@ -82,6 +95,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         availableBranchSpaceIds: [],
         movementPath: [],
         lastTurnSummary: null,
+        lastLandingEffect: null,
       };
 
     case "EXIT_TO_TITLE":
@@ -92,6 +106,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         availableBranchSpaceIds: [],
         movementPath: [],
         movingPlayerIndex: state.currentPlayerIndex,
+        lastLandingEffect: null,
       };
 
     case "ROLL_DIE": {
@@ -108,6 +123,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         movementPath: [],
         movingPlayerIndex: state.currentPlayerIndex,
         lastTurnSummary: null,
+        lastLandingEffect: null,
       };
 
       if (state.phase === "title") {
@@ -192,6 +208,7 @@ function createInitialPlayers(playerCount: number): PlayerState[] {
     id: `player-${index + 1}`,
     name: `Player ${index + 1}`,
     positionId: START_SPACE_ID,
+    coins: INITIAL_PLAYER_COINS,
   }));
 }
 
@@ -214,17 +231,93 @@ function updatePlayerPosition(
 
 function finishTurn(state: GameState): GameState {
   const movingPlayer = state.players[state.currentPlayerIndex];
+  const movingPlayerIndex = state.currentPlayerIndex;
   const nextPlayerIndex = (state.currentPlayerIndex + 1) % state.playerCount;
   const landedSpace = getBoardSpace(movingPlayer?.positionId ?? START_SPACE_ID);
   const landedName = landedSpace?.name ?? "the board";
+  const landingEffect = resolveLandingEffect(state, movingPlayerIndex);
+  const resolvedPlayers =
+    landingEffect.coinDelta === 0
+      ? state.players
+      : updatePlayerCoins(state.players, movingPlayerIndex, landingEffect.coinDelta);
 
   return {
     ...state,
+    players: resolvedPlayers,
     phase: "waitingToRoll",
     pendingMovement: 0,
     availableBranchSpaceIds: [],
-    movingPlayerIndex: state.currentPlayerIndex,
+    movingPlayerIndex,
     currentPlayerIndex: nextPlayerIndex,
-    lastTurnSummary: `${movingPlayer?.name ?? "Player"} landed on ${landedName}.`,
+    lastTurnSummary: `${movingPlayer?.name ?? "Player"} landed on ${landedName}. ${landingEffect.message}`,
+    lastLandingEffect: landingEffect,
   };
+}
+
+function updatePlayerCoins(
+  players: readonly PlayerState[],
+  playerIndex: number,
+  coinDelta: number,
+): PlayerState[] {
+  return players.map((player, index) => {
+    if (index !== playerIndex) {
+      return player;
+    }
+
+    return {
+      ...player,
+      coins: player.coins + coinDelta,
+    };
+  });
+}
+
+function resolveLandingEffect(state: GameState, playerIndex: number): LandingEffect {
+  const player = state.players[playerIndex];
+  const space = getBoardSpace(player?.positionId ?? START_SPACE_ID);
+  const spaceType = space?.type ?? "blank";
+  const spaceId = space?.id ?? START_SPACE_ID;
+  const baseEffect = {
+    playerIndex,
+    spaceId,
+    spaceType,
+  };
+
+  switch (spaceType) {
+    case "coin":
+      return {
+        ...baseEffect,
+        message: `Coin space: gained ${COIN_SPACE_REWARD} coins.`,
+        coinDelta: COIN_SPACE_REWARD,
+      };
+    case "treasure":
+      return {
+        ...baseEffect,
+        message: "Treasure space: card draw coming soon.",
+        coinDelta: 0,
+      };
+    case "trap":
+      return {
+        ...baseEffect,
+        message: "Trap space: trap effect coming soon.",
+        coinDelta: 0,
+      };
+    case "event":
+      return {
+        ...baseEffect,
+        message: "Event space: event effect coming soon.",
+        coinDelta: 0,
+      };
+    case "action":
+      return {
+        ...baseEffect,
+        message: "Action space: landmark interaction coming soon.",
+        coinDelta: 0,
+      };
+    case "blank":
+      return {
+        ...baseEffect,
+        message: "Blank space: nothing happened.",
+        coinDelta: 0,
+      };
+  }
 }

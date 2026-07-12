@@ -32,6 +32,10 @@ export const FIRST_PLAYER_INDEX = 0;
 
 export const DEFAULT_PLAYER_COUNT = 2;
 
+export const INITIAL_PLAYER_COINS = 0;
+
+export const COIN_SPACE_REWARD = 10;
+
 export const BOARD_POSITION_HINTS = {
   start: { x: -4.8, z: 1.8 },
   campCoin: { x: -3.9, z: 1.1 },

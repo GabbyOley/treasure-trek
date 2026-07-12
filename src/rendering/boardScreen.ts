@@ -84,6 +84,7 @@ export function renderBoardScreen(
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status></p>
           <p class="board-roll-text" data-board-roll></p>
+          <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
           <div class="board-choice-list" data-board-choices></div>
           <button
             type="button"
@@ -110,12 +111,14 @@ export function renderBoardScreen(
   const sceneView = createBoardScene(canvasWrap, state);
   const status = container.querySelector<HTMLParagraphElement>("[data-board-status]");
   const roll = container.querySelector<HTMLParagraphElement>("[data-board-roll]");
+  const playerCoins = container.querySelector<HTMLDivElement>("[data-player-coins]");
   const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
   const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
 
   if (
     status === null ||
     roll === null ||
+    playerCoins === null ||
     choices === null ||
     rollButton === null
   ) {
@@ -128,6 +131,7 @@ export function renderBoardScreen(
       nextState.lastRoll === null
         ? "No board roll yet."
         : `${getMovingPlayerName(nextState)} rolled ${nextState.lastRoll}.`;
+    playerCoins.innerHTML = renderPlayerCoins(nextState);
     rollButton.disabled =
       nextState.phase === "moving" || nextState.phase === "choosingBranch";
     choices.innerHTML = renderBranchChoices(nextState);
@@ -727,6 +731,19 @@ function getBoardStatusText(state: GameState): string {
 
 function getMovingPlayerName(state: GameState): string {
   return state.players[state.movingPlayerIndex]?.name ?? "Player";
+}
+
+function renderPlayerCoins(state: GameState): string {
+  return state.players
+    .map(
+      (player, index) => `
+        <p class="player-coin-chip ${index === state.currentPlayerIndex ? "is-active" : ""}">
+          <span>${player.name}</span>
+          <strong>${player.coins} coins</strong>
+        </p>
+      `,
+    )
+    .join("");
 }
 
 function renderBranchChoices(state: GameState): string {

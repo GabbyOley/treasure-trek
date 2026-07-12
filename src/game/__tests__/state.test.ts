@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COIN_SPACE_REWARD,
   DEFAULT_PLAYER_COUNT,
   FIRST_PLAYER_INDEX,
+  INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   TITLE_SCREEN_DIE_SIDES,
 } from "../../utils/constants";
@@ -21,6 +23,23 @@ function collectRolls(state: GameState, rollCount: number): number[] {
   return rolls;
 }
 
+function createBoardStateAt(spaceId: string, seed: number): GameState {
+  const boardState = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+
+  return {
+    ...boardState,
+    seed,
+    players: boardState.players.map((player, index) =>
+      index === boardState.currentPlayerIndex
+        ? {
+            ...player,
+            positionId: spaceId,
+          }
+        : player,
+    ),
+  };
+}
+
 describe("game state", () => {
   it("creates the initial state", () => {
     expect(createInitialGameState()).toEqual({
@@ -34,11 +53,13 @@ describe("game state", () => {
           id: "player-1",
           name: "Player 1",
           positionId: START_SPACE_ID,
+          coins: INITIAL_PLAYER_COINS,
         },
         {
           id: "player-2",
           name: "Player 2",
           positionId: START_SPACE_ID,
+          coins: INITIAL_PLAYER_COINS,
         },
       ],
       pendingMovement: 0,
@@ -46,6 +67,7 @@ describe("game state", () => {
       movementPath: [],
       movingPlayerIndex: FIRST_PLAYER_INDEX,
       lastTurnSummary: null,
+      lastLandingEffect: null,
     });
   });
 
@@ -56,6 +78,15 @@ describe("game state", () => {
     expect(state.players.map((player) => player.positionId)).toEqual([
       START_SPACE_ID,
       START_SPACE_ID,
+    ]);
+  });
+
+  it("players start with 0 coins", () => {
+    const state = createInitialGameState();
+
+    expect(state.players.map((player) => player.coins)).toEqual([
+      INITIAL_PLAYER_COINS,
+      INITIAL_PLAYER_COINS,
     ]);
   });
 
@@ -284,6 +315,112 @@ describe("game state", () => {
     expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
     expect(firstResult.players.map((player) => player.positionId)).toEqual(
       secondResult.players.map((player) => player.positionId),
+    );
+  });
+
+  it("landing on a Coin space adds 10 coins to only the active player", () => {
+    const nextState = applyMove(createBoardStateAt(START_SPACE_ID, 7), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.players[0]?.coins).toBe(COIN_SPACE_REWARD);
+    expect(nextState.players[1]?.coins).toBe(INITIAL_PLAYER_COINS);
+    expect(nextState.lastLandingEffect).toMatchObject({
+      playerIndex: 0,
+      spaceType: "coin",
+      coinDelta: COIN_SPACE_REWARD,
+    });
+  });
+
+  it("landing on Blank does not change coins", () => {
+    const nextState = applyMove(createBoardStateAt("camp-coin", 7), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
+    expect(nextState.lastLandingEffect).toMatchObject({
+      spaceType: "blank",
+      message: "Blank space: nothing happened.",
+      coinDelta: 0,
+    });
+  });
+
+  it.each([
+    ["treasure", "cave-trap", "Treasure space: card draw coming soon."],
+    ["trap", "camp-fork", "Trap space: trap effect coming soon."],
+    ["event", "camp-blank", "Event space: event effect coming soon."],
+    ["action", "camp-event", "Action space: landmark interaction coming soon."],
+  ])(
+    "landing on %s produces a placeholder landing result without changing coins",
+    (_spaceType, startSpaceId, expectedMessage) => {
+      const initialState = createBoardStateAt(startSpaceId, 7);
+      const nextState =
+        startSpaceId === "camp-fork"
+          ? applyMove(
+              {
+                ...initialState,
+                phase: "choosingBranch",
+                pendingMovement: 1,
+                availableBranchSpaceIds: ["field-entry", "cave-mouth"],
+              },
+              { type: "CHOOSE_BRANCH", spaceId: "cave-mouth" },
+            )
+          : applyMove(initialState, { type: "ROLL_DIE" });
+
+      expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
+      expect(nextState.lastLandingEffect?.message).toBe(expectedMessage);
+      expect(nextState.lastLandingEffect?.coinDelta).toBe(0);
+    },
+  );
+
+  it("landing resolution happens before turn advancement", () => {
+    const nextState = applyMove(createBoardStateAt(START_SPACE_ID, 7), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.lastLandingEffect?.playerIndex).toBe(0);
+    expect(nextState.lastTurnSummary).toContain("gained 10 coins");
+  });
+
+  it("branch choice followed by landing resolves the final landed space", () => {
+    const branchState = applyMove(createBoardStateAt(START_SPACE_ID, 2), {
+      type: "ROLL_DIE",
+    });
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "cave-mouth",
+    });
+
+    expect(nextState.players[0]?.positionId).toBe("cave-mouth");
+    expect(nextState.lastLandingEffect).toMatchObject({
+      spaceId: "cave-mouth",
+      spaceType: "trap",
+      message: "Trap space: trap effect coming soon.",
+    });
+  });
+
+  it("same seed plus same choices produces deterministic positions, coins, and turn order", () => {
+    const playRound = (): GameState => {
+      const playerOneCoin = applyMove(createBoardStateAt(START_SPACE_ID, 7), {
+        type: "ROLL_DIE",
+      });
+      const playerTwoBranch = applyMove({ ...playerOneCoin, seed: 2 }, { type: "ROLL_DIE" });
+
+      return applyMove(playerTwoBranch, {
+        type: "CHOOSE_BRANCH",
+        spaceId: "field-entry",
+      });
+    };
+    const firstResult = playRound();
+    const secondResult = playRound();
+
+    expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
+    expect(firstResult.players.map((player) => player.coins)).toEqual(
+      secondResult.players.map((player) => player.coins),
     );
   });
 });
