@@ -84,6 +84,10 @@ export const BOARD_PLACEHOLDER = {
     segments: 28,
     y: 0.38,
   },
+  connections: {
+    radius: 0.055,
+    y: 0.34,
+  },
   rim: {
     radiusScale: 0.82,
     tubeRadius: 0.025,
@@ -105,6 +109,9 @@ export const BOARD_PLACEHOLDER = {
     trapYExtra: 0.04,
     eventRadius: 0.17,
     eventFloatAmount: 0.015,
+    actionWidth: 0.28,
+    actionHeight: 0.07,
+    actionDepth: 0.08,
   },
   rotations: {
     flatMarkerX: Math.PI / 2,
@@ -147,6 +154,14 @@ export const BOARD_PLACEHOLDER = {
       roughness: 0.22,
       metalness: 0.12,
     },
+    action: {
+      roughness: 0.46,
+      metalness: 0.1,
+    },
+    connection: {
+      roughness: 0.72,
+      metalness: 0.02,
+    },
   },
   lights: {
     ambientIntensity: 2.1,
@@ -163,14 +178,4 @@ export const BOARD_PLACEHOLDER = {
       z: -3,
     },
   },
-  path: [
-    { x: -4.2, z: 1.7, type: "blank" },
-    { x: -3.25, z: 0.85, type: "coin" },
-    { x: -2.1, z: 0.35, type: "event" },
-    { x: -0.85, z: 0.95, type: "blank" },
-    { x: 0.25, z: 0.2, type: "trap" },
-    { x: 1.35, z: -0.45, type: "coin" },
-    { x: 2.55, z: -0.1, type: "event" },
-    { x: 3.55, z: -0.85, type: "treasure" },
-  ],
 } as const;
