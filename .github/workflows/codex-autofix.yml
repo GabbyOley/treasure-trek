@@ -1,0 +1,54 @@
+name: Codex Autofix
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  autofix:
+    # ONLY react to Codex's own reviews. Never to a human's.
+    if: contains(github.event.review.user.login, 'codex')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count prior fix attempts (LOOP GUARD)
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Count how many times WE have already asked Codex to fix this PR.
+          attempts=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            | jq '[.[] | select(.body | test("<!-- autofix-attempt -->"))] | length')
+          echo "attempts=$attempts" >> "$GITHUB_OUTPUT"
+          echo "Prior autofix attempts: $attempts"
+
+      - name: Bail out after 2 attempts
+        if: steps.guard.outputs.attempts >= '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "🛑 **Autofix stopped after 2 attempts.**
+
+          Codex has reviewed and tried to fix this twice and there are still findings.
+          Two failed fixes means we're chasing, not converging — a third won't help.
+
+          This PR needs a human look. Check the Vercel preview and decide."
+          gh pr edit "$PR_URL" --add-label "needs-human"
+          exit 0
+
+      - name: Ask Codex to fix its own findings
+        if: steps.guard.outputs.attempts < '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "<!-- autofix-attempt -->
+          @codex fix the P0 and P1 issues you raised in your review. Do not open a new PR — push the fix to this branch. Make the smallest change that resolves each finding. Do not refactor anything unrelated."

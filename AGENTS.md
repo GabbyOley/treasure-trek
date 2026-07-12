@@ -79,3 +79,10 @@ src/
 - Merge the PR before starting the next task.
 - Delete the branch after it is merged.
 - Do not stack unrelated work on an older branch.
+
+## Pull requests
+
+- Open PRs normally (NOT as drafts).
+- When asked to fix review findings, push commits to the EXISTING branch. Never
+  open a second PR for a fix.
+- Make the smallest change that resolves each finding. Do not refactor unrelated code.
