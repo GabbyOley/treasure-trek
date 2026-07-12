@@ -1,15 +1,21 @@
 import * as THREE from "three";
 
+import {
+  BOARD_SPACES,
+  getBoardSpace,
+  type BoardRegion,
+  type BoardRisk,
+  type BoardSpace,
+  type BoardSpaceType,
+} from "../game/board";
 import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
-
-type SpaceType = (typeof BOARD_PLACEHOLDER.path)[number]["type"];
 
 type SpaceStyle = {
   color: number;
-  marker: "none" | "coin" | "treasure" | "trap" | "event";
+  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action";
 };
 
-const SPACE_STYLES: Record<SpaceType, SpaceStyle> = {
+const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
   blank: {
     color: PALETTE.parchment,
     marker: "none",
@@ -30,6 +36,16 @@ const SPACE_STYLES: Record<SpaceType, SpaceStyle> = {
     color: PALETTE.tide,
     marker: "event",
   },
+  action: {
+    color: PALETTE.mist,
+    marker: "action",
+  },
+};
+
+const RISK_LABELS: Record<BoardRisk, string> = {
+  safe: "safe",
+  quest: "rolling quest",
+  danger: "dangerous branch",
 };
 
 export type BoardScreenView = {
@@ -45,7 +61,12 @@ export function renderBoardScreen(container: HTMLDivElement): BoardScreenView {
         </button>
         <p class="board-kicker">Treasure Trek</p>
       </div>
-      <div class="board-canvas-wrap" aria-label="3D Treasure Trek board placeholder"></div>
+      <div class="board-stage">
+        <div class="board-canvas-wrap" aria-label="3D Treasure Trek board placeholder"></div>
+        <aside class="board-region-panel" aria-label="Board regions">
+          ${renderRegionSummaries()}
+        </aside>
+      </div>
     </main>
   `;
 
@@ -197,17 +218,65 @@ function createBoardGroup(): THREE.Group {
   grass.receiveShadow = true;
   group.add(grass);
 
-  BOARD_PLACEHOLDER.path.forEach((space, index) => {
-    group.add(createSpace(space.x, space.z, space.type, index));
+  BOARD_SPACES.forEach((space) => {
+    space.nextSpaceIds.forEach((nextSpaceId) => {
+      const nextSpace = getBoardSpace(nextSpaceId);
+
+      if (nextSpace !== undefined) {
+        group.add(createConnection(space, nextSpace));
+      }
+    });
+  });
+
+  BOARD_SPACES.forEach((space, index) => {
+    group.add(createSpace(space, index));
   });
 
   return group;
 }
 
-function createSpace(x: number, z: number, type: SpaceType, index: number): THREE.Group {
-  const style = SPACE_STYLES[type];
+function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
+  const startVector = new THREE.Vector3(
+    start.position.x,
+    BOARD_PLACEHOLDER.connections.y,
+    start.position.z,
+  );
+  const endVector = new THREE.Vector3(
+    end.position.x,
+    BOARD_PLACEHOLDER.connections.y,
+    end.position.z,
+  );
+  const midpoint = new THREE.Vector3().addVectors(startVector, endVector).multiplyScalar(0.5);
+  const direction = new THREE.Vector3().subVectors(endVector, startVector);
+  const length = direction.length();
+  const connection = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      BOARD_PLACEHOLDER.connections.radius,
+      BOARD_PLACEHOLDER.connections.radius,
+      length,
+      BOARD_PLACEHOLDER.rim.radialSegments,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: start.region === "Cave" || end.region === "Cave" ? PALETTE.coral : PALETTE.parchment,
+      roughness: BOARD_PLACEHOLDER.materials.connection.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.connection.metalness,
+    }),
+  );
+
+  connection.position.copy(midpoint);
+  connection.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction.normalize(),
+  );
+  connection.receiveShadow = true;
+
+  return connection;
+}
+
+function createSpace(space: BoardSpace, index: number): THREE.Group {
+  const style = SPACE_STYLES[space.type];
   const group = new THREE.Group();
-  group.position.set(x, BOARD_PLACEHOLDER.spaces.y, z);
+  group.position.set(space.position.x, BOARD_PLACEHOLDER.spaces.y, space.position.z);
 
   const base = new THREE.Mesh(
     new THREE.CylinderGeometry(
@@ -325,7 +394,58 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
       markerHeight + Math.sin(index) * BOARD_PLACEHOLDER.markers.eventFloatAmount;
     eventGem.castShadow = true;
     group.add(eventGem);
+    return;
   }
+
+  if (marker === "action") {
+    const barMaterial = new THREE.MeshStandardMaterial({
+      color: PALETTE.ink,
+      roughness: BOARD_PLACEHOLDER.materials.action.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.action.metalness,
+    });
+    const horizontal = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        BOARD_PLACEHOLDER.markers.actionWidth,
+        BOARD_PLACEHOLDER.markers.actionHeight,
+        BOARD_PLACEHOLDER.markers.actionDepth,
+      ),
+      barMaterial,
+    );
+    const vertical = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        BOARD_PLACEHOLDER.markers.actionDepth,
+        BOARD_PLACEHOLDER.markers.actionHeight,
+        BOARD_PLACEHOLDER.markers.actionWidth,
+      ),
+      barMaterial.clone(),
+    );
+    horizontal.position.y = markerHeight;
+    vertical.position.y = markerHeight;
+    horizontal.castShadow = true;
+    vertical.castShadow = true;
+    group.add(horizontal, vertical);
+  }
+}
+
+function renderRegionSummaries(): string {
+  const regions = new Map<BoardRegion, BoardRisk>();
+
+  BOARD_SPACES.forEach((space) => {
+    if (!regions.has(space.region)) {
+      regions.set(space.region, space.risk);
+    }
+  });
+
+  return [...regions.entries()]
+    .map(
+      ([region, risk]) => `
+        <p class="region-chip region-chip-${risk}">
+          <span>${region}</span>
+          <small>${RISK_LABELS[risk]}</small>
+        </p>
+      `,
+    )
+    .join("");
 }
 
 function addLights(scene: THREE.Scene): void {

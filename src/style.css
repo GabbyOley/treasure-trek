@@ -285,16 +285,65 @@ h1 {
   text-transform: uppercase;
 }
 
-.board-canvas-wrap {
+.board-stage {
   min-height: 0;
   width: 100%;
   position: relative;
+}
+
+.board-canvas-wrap {
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .board-canvas-wrap canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.board-region-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: grid;
+  gap: 8px;
+  max-width: min(22rem, calc(100% - 32px));
+  pointer-events: none;
+}
+
+.region-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(242, 225, 182, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 22, 36, 0.72);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.region-chip span {
+  font-weight: 700;
+  color: var(--color-mist);
+}
+
+.region-chip small {
+  color: rgba(255, 247, 232, 0.78);
+}
+
+.region-chip-safe {
+  border-color: rgba(242, 225, 182, 0.3);
+}
+
+.region-chip-quest {
+  border-color: rgba(43, 108, 126, 0.65);
+}
+
+.region-chip-danger {
+  border-color: rgba(201, 106, 66, 0.72);
 }
 
 @media (max-width: 480px) {
@@ -333,5 +382,16 @@ h1 {
 
   .board-kicker {
     font-size: 0.9rem;
+  }
+
+  .board-region-panel {
+    left: 10px;
+    bottom: 10px;
+    gap: 6px;
+    max-width: calc(100% - 20px);
+  }
+
+  .region-chip {
+    padding: 0.48rem 0.62rem;
   }
 }
