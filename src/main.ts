@@ -53,13 +53,21 @@ function updateTitleScreen(restoreRollFocus = false): void {
 
 function showBoardScreen(): void {
   boardScreen?.destroy();
-  boardScreen = renderBoardScreen(app);
-
-  app
-    .querySelector<HTMLButtonElement>('[data-action="back-title"]')
-    ?.addEventListener("click", () => {
+  gameState = applyMove(gameState, { type: "ENTER_BOARD" });
+  boardScreen = renderBoardScreen(app, gameState, {
+    onBack: () => {
+      gameState = applyMove(gameState, { type: "EXIT_TO_TITLE" });
       updateTitleScreen();
-    });
+    },
+    onRoll: () => {
+      gameState = applyMove(gameState, { type: "ROLL_DIE" });
+      boardScreen?.update(gameState);
+    },
+    onChooseBranch: (spaceId) => {
+      gameState = applyMove(gameState, { type: "CHOOSE_BRANCH", spaceId });
+      boardScreen?.update(gameState);
+    },
+  });
 }
 
 updateTitleScreen();

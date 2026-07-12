@@ -6,6 +6,7 @@ import {
   INITIAL_RNG_SEED,
   TITLE_SCREEN_DIE_SIDES,
 } from "../../utils/constants";
+import { START_SPACE_ID } from "../board";
 import { applyMove, createInitialGameState, type GameState } from "../state";
 
 function collectRolls(state: GameState, rollCount: number): number[] {
@@ -28,6 +29,10 @@ describe("game state", () => {
       currentPlayerIndex: FIRST_PLAYER_INDEX,
       playerCount: DEFAULT_PLAYER_COUNT,
       phase: "title",
+      playerPositionId: START_SPACE_ID,
+      pendingMovement: 0,
+      availableBranchSpaceIds: [],
+      movementPath: [],
     });
   });
 
@@ -59,5 +64,113 @@ describe("game state", () => {
 
     expect(nextState.currentPlayerIndex).toBe(initialState.currentPlayerIndex);
     expect(nextState.playerCount).toBe(initialState.playerCount);
+  });
+
+  it("entering the board starts board rolling from the initial seed", () => {
+    const titleRolledState = applyMove(createInitialGameState(), { type: "ROLL_DIE" });
+    const boardState = applyMove(titleRolledState, { type: "ENTER_BOARD" });
+
+    expect(boardState.seed).toBe(INITIAL_RNG_SEED);
+    expect(boardState.lastRoll).toBeNull();
+  });
+
+  it("a board roll creates pending movement or completes it through pure state", () => {
+    const boardState = {
+      ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      seed: 2,
+    };
+    const nextState = applyMove(boardState, { type: "ROLL_DIE" });
+
+    expect(nextState.lastRoll).not.toBeNull();
+    expect(nextState.phase).toBe("choosingBranch");
+    expect(nextState.pendingMovement).toBeGreaterThan(0);
+  });
+
+  it("movement along a single-option path advances correctly", () => {
+    const boardState = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+    const nextState = applyMove(
+      {
+        ...boardState,
+        seed: 7,
+      },
+      { type: "ROLL_DIE" },
+    );
+
+    expect(nextState.playerPositionId).toBe("camp-coin");
+    expect(nextState.movementPath).toEqual(["camp-coin"]);
+    expect(nextState.phase).toBe("movementComplete");
+  });
+
+  it("movement pauses when a branch is reached with movement remaining", () => {
+    const boardState = {
+      ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      seed: 2,
+    };
+    const nextState = applyMove(boardState, { type: "ROLL_DIE" });
+
+    expect(nextState.playerPositionId).toBe("camp-fork");
+    expect(nextState.phase).toBe("choosingBranch");
+    expect(nextState.pendingMovement).toBeGreaterThan(0);
+  });
+
+  it("available branch choices are valid connected spaces", () => {
+    const boardState = {
+      ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      seed: 2,
+    };
+    const nextState = applyMove(boardState, { type: "ROLL_DIE" });
+
+    expect(nextState.availableBranchSpaceIds).toEqual(["field-entry", "cave-mouth"]);
+  });
+
+  it("choosing a branch continues movement", () => {
+    const boardState = {
+      ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      seed: 2,
+    };
+    const branchState = applyMove(boardState, { type: "ROLL_DIE" });
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "field-entry",
+    });
+
+    expect(nextState.playerPositionId).not.toBe("camp-fork");
+    expect(nextState.availableBranchSpaceIds).toEqual([]);
+    expect(nextState.phase).toBe("movementComplete");
+  });
+
+  it("movement cannot choose an invalid branch", () => {
+    const boardState = {
+      ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+      seed: 2,
+    };
+    const branchState = applyMove(boardState, { type: "ROLL_DIE" });
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "slice-end",
+    });
+
+    expect(nextState).toBe(branchState);
+  });
+
+  it("final position is deterministic from the same seed and choices", () => {
+    const playTurn = (): GameState => {
+      const boardState = {
+        ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
+        seed: 2,
+      };
+      const branchState = applyMove(boardState, { type: "ROLL_DIE" });
+
+      return applyMove(branchState, {
+        type: "CHOOSE_BRANCH",
+        spaceId: "cave-mouth",
+      });
+    };
+    const firstResult = playTurn();
+    const secondResult = playTurn();
+
+    expect(firstResult.playerPositionId).toBe(secondResult.playerPositionId);
+    expect(firstResult.lastRoll).toBe(secondResult.lastRoll);
+    expect(firstResult.seed).toBe(secondResult.seed);
   });
 });

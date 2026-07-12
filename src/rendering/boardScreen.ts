@@ -8,6 +8,7 @@ import {
   type BoardSpace,
   type BoardSpaceType,
 } from "../game/board";
+import type { GameState } from "../game/state";
 import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
@@ -49,10 +50,21 @@ const RISK_LABELS: Record<BoardRisk, string> = {
 };
 
 export type BoardScreenView = {
+  update: (state: GameState) => void;
   destroy: () => void;
 };
 
-export function renderBoardScreen(container: HTMLDivElement): BoardScreenView {
+export type BoardScreenHandlers = {
+  onBack: () => void;
+  onRoll: () => void;
+  onChooseBranch: (spaceId: string) => void;
+};
+
+export function renderBoardScreen(
+  container: HTMLDivElement,
+  state: GameState,
+  handlers: BoardScreenHandlers,
+): BoardScreenView {
   container.innerHTML = `
     <main class="board-screen">
       <div class="board-toolbar">
@@ -63,6 +75,20 @@ export function renderBoardScreen(container: HTMLDivElement): BoardScreenView {
       </div>
       <div class="board-stage">
         <div class="board-canvas-wrap" aria-label="3D Treasure Trek board placeholder"></div>
+        <section class="board-status-panel" aria-live="polite">
+          <p class="board-status-label">Board Turn</p>
+          <p class="board-status-text" data-board-status></p>
+          <p class="board-roll-text" data-board-roll></p>
+          <div class="board-choice-list" data-board-choices></div>
+          <button
+            type="button"
+            class="board-roll-button"
+            data-action="board-roll"
+            aria-label="Roll the board die"
+          >
+            Roll
+          </button>
+        </section>
         <aside class="board-region-panel" aria-label="Board regions">
           ${renderRegionSummaries()}
         </aside>
@@ -76,10 +102,54 @@ export function renderBoardScreen(container: HTMLDivElement): BoardScreenView {
     throw new Error("Board canvas container was not created.");
   }
 
-  return createBoardScene(canvasWrap);
+  const sceneView = createBoardScene(canvasWrap, state);
+  const status = container.querySelector<HTMLParagraphElement>("[data-board-status]");
+  const roll = container.querySelector<HTMLParagraphElement>("[data-board-roll]");
+  const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
+  const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
+
+  if (
+    status === null ||
+    roll === null ||
+    choices === null ||
+    rollButton === null
+  ) {
+    throw new Error("Board controls were not created.");
+  }
+
+  const updateHud = (nextState: GameState): void => {
+    status.textContent = getBoardStatusText(nextState);
+    roll.textContent =
+      nextState.lastRoll === null ? "No board roll yet." : `Last roll: ${nextState.lastRoll}`;
+    rollButton.disabled =
+      nextState.phase === "moving" || nextState.phase === "choosingBranch";
+    choices.innerHTML = renderBranchChoices(nextState);
+
+    choices
+      .querySelectorAll<HTMLButtonElement>("[data-branch-choice]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          handlers.onChooseBranch(button.dataset.branchChoice ?? "");
+        });
+      });
+  };
+
+  container
+    .querySelector<HTMLButtonElement>('[data-action="back-title"]')
+    ?.addEventListener("click", handlers.onBack);
+  rollButton.addEventListener("click", handlers.onRoll);
+  updateHud(state);
+
+  return {
+    update: (nextState: GameState) => {
+      sceneView.update(nextState);
+      updateHud(nextState);
+    },
+    destroy: sceneView.destroy,
+  };
 }
 
-function createBoardScene(container: HTMLDivElement): BoardScreenView {
+function createBoardScene(container: HTMLDivElement, state: GameState): BoardScreenView {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(PALETTE.deepSea);
   scene.fog = new THREE.Fog(
@@ -115,8 +185,72 @@ function createBoardScene(container: HTMLDivElement): BoardScreenView {
   container.append(renderer.domElement);
 
   const board = createBoardGroup();
+  const player = createPlayerPiece();
+  const choiceHighlights = new THREE.Group();
+  board.add(player, choiceHighlights);
   scene.add(board);
   addLights(scene);
+  let movementTimer = 0;
+
+  const placePlayer = (spaceId: string): void => {
+    const playerSpace = getBoardSpace(spaceId);
+
+    if (playerSpace !== undefined) {
+      player.position.set(
+        playerSpace.position.x,
+        BOARD_PLACEHOLDER.player.y,
+        playerSpace.position.z,
+      );
+    }
+  };
+
+  const updateChoiceHighlights = (nextState: GameState): void => {
+    choiceHighlights.clear();
+
+    nextState.availableBranchSpaceIds.forEach((spaceId) => {
+      const choiceSpace = getBoardSpace(spaceId);
+
+      if (choiceSpace !== undefined) {
+        choiceHighlights.add(createChoiceHighlight(choiceSpace));
+      }
+    });
+  };
+
+  const animateMovementPath = (
+    nextState: GameState,
+    path: readonly string[],
+    pathIndex: number,
+  ): void => {
+    const spaceId = path[pathIndex];
+
+    if (spaceId === undefined) {
+      placePlayer(nextState.playerPositionId);
+      updateChoiceHighlights(nextState);
+      return;
+    }
+
+    placePlayer(spaceId);
+    movementTimer = window.setTimeout(() => {
+      animateMovementPath(nextState, path, pathIndex + 1);
+    }, BOARD_PLACEHOLDER.player.stepMs);
+  };
+
+  const update = (nextState: GameState): void => {
+    window.clearTimeout(movementTimer);
+    updateChoiceHighlights({
+      ...nextState,
+      availableBranchSpaceIds: [],
+    });
+
+    if (nextState.movementPath.length > 0) {
+      animateMovementPath(nextState, nextState.movementPath, 0);
+      return;
+    }
+
+    placePlayer(nextState.playerPositionId);
+    updateChoiceHighlights(nextState);
+  };
+  update(state);
 
   const resize = (): void => {
     const { width, height } = container.getBoundingClientRect();
@@ -143,7 +277,9 @@ function createBoardScene(container: HTMLDivElement): BoardScreenView {
   render();
 
   return {
+    update,
     destroy: () => {
+      window.clearTimeout(movementTimer);
       window.cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
       renderer.dispose();
@@ -156,6 +292,52 @@ function createBoardScene(container: HTMLDivElement): BoardScreenView {
       renderer.domElement.remove();
     },
   };
+}
+
+function createPlayerPiece(): THREE.Group {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(
+      BOARD_PLACEHOLDER.player.radius,
+      BOARD_PLACEHOLDER.player.height,
+      BOARD_PLACEHOLDER.player.segments,
+      BOARD_PLACEHOLDER.player.segments,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.gold,
+      roughness: BOARD_PLACEHOLDER.materials.player.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.player.metalness,
+    }),
+  );
+  body.castShadow = true;
+  group.add(body);
+
+  return group;
+}
+
+function createChoiceHighlight(space: BoardSpace): THREE.Mesh {
+  const highlight = new THREE.Mesh(
+    new THREE.TorusGeometry(
+      BOARD_PLACEHOLDER.choiceHighlight.radius,
+      BOARD_PLACEHOLDER.choiceHighlight.tubeRadius,
+      BOARD_PLACEHOLDER.choiceHighlight.radialSegments,
+      BOARD_PLACEHOLDER.choiceHighlight.tubularSegments,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.mist,
+      emissive: PALETTE.gold,
+      roughness: BOARD_PLACEHOLDER.materials.choiceHighlight.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.choiceHighlight.metalness,
+    }),
+  );
+  highlight.position.set(
+    space.position.x,
+    BOARD_PLACEHOLDER.spaces.y + BOARD_PLACEHOLDER.choiceHighlight.y,
+    space.position.z,
+  );
+  highlight.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
+
+  return highlight;
 }
 
 function createBoardGroup(): THREE.Group {
@@ -445,6 +627,55 @@ function renderRegionSummaries(): string {
         </p>
       `,
     )
+    .join("");
+}
+
+function getBoardStatusText(state: GameState): string {
+  const currentSpace = getBoardSpace(state.playerPositionId);
+  const spaceName = currentSpace?.name ?? "the board";
+
+  if (state.phase === "waitingToRoll") {
+    return `Waiting to roll. Your explorer is on ${spaceName}.`;
+  }
+
+  if (state.phase === "moving") {
+    return `Moving with ${state.pendingMovement} step left.`;
+  }
+
+  if (state.phase === "choosingBranch") {
+    const stepLabel = state.pendingMovement === 1 ? "step remains" : "steps remain";
+
+    return `Choose a route from ${spaceName}. ${state.pendingMovement} ${stepLabel} from this roll.`;
+  }
+
+  if (state.phase === "movementComplete") {
+    return `Landed on ${spaceName}. Roll again when you are ready.`;
+  }
+
+  return "Ready for the adventure.";
+}
+
+function renderBranchChoices(state: GameState): string {
+  if (state.phase !== "choosingBranch") {
+    return "";
+  }
+
+  return state.availableBranchSpaceIds
+    .map((spaceId) => {
+      const space = getBoardSpace(spaceId);
+      const label = space === undefined ? spaceId : `${space.region}: ${space.name}`;
+
+      return `
+        <button
+          type="button"
+          class="branch-choice-button"
+          data-branch-choice="${spaceId}"
+          aria-label="Choose route to ${label}"
+        >
+          ${label}
+        </button>
+      `;
+    })
     .join("");
 }
 

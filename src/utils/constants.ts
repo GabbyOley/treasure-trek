@@ -107,6 +107,20 @@ export const BOARD_PLACEHOLDER = {
     segments: 28,
     y: 0.38,
   },
+  player: {
+    radius: 0.18,
+    height: 0.52,
+    segments: 24,
+    y: 0.86,
+    stepMs: 180,
+  },
+  choiceHighlight: {
+    radius: 0.48,
+    tubeRadius: 0.035,
+    radialSegments: 8,
+    tubularSegments: 32,
+    y: 0.18,
+  },
   connections: {
     radius: 0.055,
     y: 0.34,
@@ -180,6 +194,14 @@ export const BOARD_PLACEHOLDER = {
     action: {
       roughness: 0.46,
       metalness: 0.1,
+    },
+    player: {
+      roughness: 0.34,
+      metalness: 0.18,
+    },
+    choiceHighlight: {
+      roughness: 0.2,
+      metalness: 0.2,
     },
     connection: {
       roughness: 0.72,
