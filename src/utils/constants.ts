@@ -32,6 +32,29 @@ export const FIRST_PLAYER_INDEX = 0;
 
 export const DEFAULT_PLAYER_COUNT = 2;
 
+export const BOARD_POSITION_HINTS = {
+  start: { x: -4.8, z: 1.8 },
+  campCoin: { x: -3.9, z: 1.1 },
+  campBlank: { x: -3, z: 0.7 },
+  campEvent: { x: -2.05, z: 1.05 },
+  campFork: { x: -1.15, z: 0.25 },
+  fieldEntry: { x: -0.15, z: 1.2 },
+  fieldAction: { x: 0.95, z: 1.55 },
+  fieldEvent: { x: 1.95, z: 1.1 },
+  fieldCoin: { x: 2.8, z: 0.45 },
+  fieldBlank: { x: 3.3, z: -0.35 },
+  caveMouth: { x: -0.25, z: -0.9 },
+  caveCoin: { x: 0.7, z: -1.65 },
+  caveTrap: { x: 1.75, z: -1.9 },
+  caveTreasure: { x: 2.65, z: -1.35 },
+  caveEvent: { x: 3.2, z: -1.05 },
+  rejoinBridge: { x: 4.05, z: -0.65 },
+  lookoutBlank: { x: 4.45, z: 0.15 },
+  lookoutCoin: { x: 3.85, z: 0.85 },
+  lookoutEvent: { x: 3.05, z: 1.35 },
+  sliceEnd: { x: 2.15, z: 1.65 },
+} as const;
+
 export const BOARD_PLACEHOLDER = {
   renderer: {
     maxPixelRatio: 2,

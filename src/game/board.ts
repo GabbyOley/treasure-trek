@@ -1,3 +1,5 @@
+import { BOARD_POSITION_HINTS } from "../utils/constants";
+
 export type BoardSpaceType =
   | "blank"
   | "coin"
@@ -35,7 +37,7 @@ export const BOARD_SPACES = [
     region: "Campground",
     risk: "safe",
     nextSpaceIds: ["camp-coin"],
-    position: { x: -4.8, z: 1.8 },
+    position: BOARD_POSITION_HINTS.start,
   },
   {
     id: "camp-coin",
@@ -44,7 +46,7 @@ export const BOARD_SPACES = [
     region: "Campground",
     risk: "safe",
     nextSpaceIds: ["camp-blank"],
-    position: { x: -3.9, z: 1.1 },
+    position: BOARD_POSITION_HINTS.campCoin,
   },
   {
     id: "camp-blank",
@@ -53,7 +55,7 @@ export const BOARD_SPACES = [
     region: "Campground",
     risk: "safe",
     nextSpaceIds: ["camp-event"],
-    position: { x: -3, z: 0.7 },
+    position: BOARD_POSITION_HINTS.campBlank,
   },
   {
     id: "camp-event",
@@ -62,7 +64,7 @@ export const BOARD_SPACES = [
     region: "Campground",
     risk: "safe",
     nextSpaceIds: ["camp-fork"],
-    position: { x: -2.05, z: 1.05 },
+    position: BOARD_POSITION_HINTS.campEvent,
   },
   {
     id: "camp-fork",
@@ -71,7 +73,7 @@ export const BOARD_SPACES = [
     region: "Campground",
     risk: "safe",
     nextSpaceIds: ["field-entry", "cave-mouth"],
-    position: { x: -1.15, z: 0.25 },
+    position: BOARD_POSITION_HINTS.campFork,
   },
   {
     id: "field-entry",
@@ -80,7 +82,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["field-action"],
-    position: { x: -0.15, z: 1.2 },
+    position: BOARD_POSITION_HINTS.fieldEntry,
   },
   {
     id: "field-action",
@@ -89,7 +91,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["field-event"],
-    position: { x: 0.95, z: 1.55 },
+    position: BOARD_POSITION_HINTS.fieldAction,
   },
   {
     id: "field-event",
@@ -98,7 +100,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["field-coin"],
-    position: { x: 1.95, z: 1.1 },
+    position: BOARD_POSITION_HINTS.fieldEvent,
   },
   {
     id: "field-coin",
@@ -107,7 +109,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["field-blank"],
-    position: { x: 2.8, z: 0.45 },
+    position: BOARD_POSITION_HINTS.fieldCoin,
   },
   {
     id: "field-blank",
@@ -116,7 +118,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["rejoin-bridge"],
-    position: { x: 3.3, z: -0.35 },
+    position: BOARD_POSITION_HINTS.fieldBlank,
   },
   {
     id: "cave-mouth",
@@ -125,7 +127,7 @@ export const BOARD_SPACES = [
     region: "Cave",
     risk: "danger",
     nextSpaceIds: ["cave-coin"],
-    position: { x: -0.25, z: -0.9 },
+    position: BOARD_POSITION_HINTS.caveMouth,
   },
   {
     id: "cave-coin",
@@ -134,7 +136,7 @@ export const BOARD_SPACES = [
     region: "Cave",
     risk: "danger",
     nextSpaceIds: ["cave-trap"],
-    position: { x: 0.7, z: -1.65 },
+    position: BOARD_POSITION_HINTS.caveCoin,
   },
   {
     id: "cave-trap",
@@ -143,7 +145,7 @@ export const BOARD_SPACES = [
     region: "Cave",
     risk: "danger",
     nextSpaceIds: ["cave-treasure"],
-    position: { x: 1.75, z: -1.9 },
+    position: BOARD_POSITION_HINTS.caveTrap,
   },
   {
     id: "cave-treasure",
@@ -152,7 +154,7 @@ export const BOARD_SPACES = [
     region: "Cave",
     risk: "danger",
     nextSpaceIds: ["cave-event"],
-    position: { x: 2.65, z: -1.35 },
+    position: BOARD_POSITION_HINTS.caveTreasure,
   },
   {
     id: "cave-event",
@@ -161,7 +163,7 @@ export const BOARD_SPACES = [
     region: "Cave",
     risk: "danger",
     nextSpaceIds: ["rejoin-bridge"],
-    position: { x: 3.2, z: -1.05 },
+    position: BOARD_POSITION_HINTS.caveEvent,
   },
   {
     id: "rejoin-bridge",
@@ -170,7 +172,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["lookout-blank"],
-    position: { x: 4.05, z: -0.65 },
+    position: BOARD_POSITION_HINTS.rejoinBridge,
   },
   {
     id: "lookout-blank",
@@ -179,7 +181,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["lookout-coin"],
-    position: { x: 4.45, z: 0.15 },
+    position: BOARD_POSITION_HINTS.lookoutBlank,
   },
   {
     id: "lookout-coin",
@@ -188,7 +190,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["lookout-event"],
-    position: { x: 3.85, z: 0.85 },
+    position: BOARD_POSITION_HINTS.lookoutCoin,
   },
   {
     id: "lookout-event",
@@ -197,7 +199,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["slice-end"],
-    position: { x: 3.05, z: 1.35 },
+    position: BOARD_POSITION_HINTS.lookoutEvent,
   },
   {
     id: "slice-end",
@@ -206,7 +208,7 @@ export const BOARD_SPACES = [
     region: "Field",
     risk: "quest",
     nextSpaceIds: [],
-    position: { x: 2.15, z: 1.65 },
+    position: BOARD_POSITION_HINTS.sliceEnd,
   },
 ] as const satisfies readonly BoardSpace[];
 
