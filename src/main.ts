@@ -30,16 +30,21 @@ Object.entries(cssVars).forEach(([name, value]) => {
   root.style.setProperty(name, value);
 });
 
-function updateTitleScreen(): void {
+function updateTitleScreen(restoreRollFocus = false): void {
   renderTitleScreen(app, { lastRoll });
 
-  app
-    .querySelector<HTMLButtonElement>('[data-action="roll"]')
-    ?.addEventListener("click", () => {
+  const rollButton =
+    app.querySelector<HTMLButtonElement>('[data-action="roll"]') ?? null;
+
+  if (restoreRollFocus) {
+    rollButton?.focus();
+  }
+
+  rollButton?.addEventListener("click", () => {
       const nextRoll = rollSeededDie(rngSeed, TITLE_SCREEN_DIE_SIDES);
       rngSeed = nextRoll.nextSeed;
       lastRoll = nextRoll.value;
-      updateTitleScreen();
+      updateTitleScreen(true);
     });
 }
 

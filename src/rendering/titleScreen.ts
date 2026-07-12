@@ -22,8 +22,20 @@ export function renderTitleScreen(
           Chart your course, outsmart your rivals, and race to uncover the island's buried fortune.
         </p>
         <div class="action-group">
-          <button type="button" class="menu-button primary">Play vs Computer</button>
-          <button type="button" class="menu-button secondary">Play with a Friend</button>
+          <button
+            type="button"
+            class="menu-button primary"
+            aria-label="Play against the computer"
+          >
+            Play vs Computer
+          </button>
+          <button
+            type="button"
+            class="menu-button secondary"
+            aria-label="Play with a friend"
+          >
+            Play with a Friend
+          </button>
           <button
             type="button"
             class="menu-button tertiary"
