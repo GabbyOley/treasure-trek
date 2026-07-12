@@ -80,7 +80,12 @@ export function renderBoardScreen(
           <p class="board-status-text" data-board-status></p>
           <p class="board-roll-text" data-board-roll></p>
           <div class="board-choice-list" data-board-choices></div>
-          <button type="button" class="board-roll-button" data-action="board-roll">
+          <button
+            type="button"
+            class="board-roll-button"
+            data-action="board-roll"
+            aria-label="Roll the board die"
+          >
             Roll
           </button>
         </section>
@@ -661,7 +666,12 @@ function renderBranchChoices(state: GameState): string {
       const label = space === undefined ? spaceId : `${space.region}: ${space.name}`;
 
       return `
-        <button type="button" class="branch-choice-button" data-branch-choice="${spaceId}">
+        <button
+          type="button"
+          class="branch-choice-button"
+          data-branch-choice="${spaceId}"
+          aria-label="Choose route to ${label}"
+        >
           ${label}
         </button>
       `;

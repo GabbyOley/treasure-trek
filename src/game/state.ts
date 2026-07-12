@@ -60,6 +60,8 @@ export function applyMove(state: GameState, move: Move): GameState {
     case "ENTER_BOARD":
       return {
         ...state,
+        seed: INITIAL_RNG_SEED,
+        lastRoll: null,
         phase: "waitingToRoll",
         playerPositionId: START_SPACE_ID,
         pendingMovement: 0,

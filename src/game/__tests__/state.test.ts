@@ -66,6 +66,14 @@ describe("game state", () => {
     expect(nextState.playerCount).toBe(initialState.playerCount);
   });
 
+  it("entering the board starts board rolling from the initial seed", () => {
+    const titleRolledState = applyMove(createInitialGameState(), { type: "ROLL_DIE" });
+    const boardState = applyMove(titleRolledState, { type: "ENTER_BOARD" });
+
+    expect(boardState.seed).toBe(INITIAL_RNG_SEED);
+    expect(boardState.lastRoll).toBeNull();
+  });
+
   it("a board roll creates pending movement or completes it through pure state", () => {
     const boardState = {
       ...applyMove(createInitialGameState(), { type: "ENTER_BOARD" }),
