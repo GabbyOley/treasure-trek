@@ -71,3 +71,11 @@ src/
 - Flag missing aria-labels on interactive elements as P1.
 - Keep reviews short and in plain English. This repo is maintained by a
   beginner — explain what is wrong and WHY it matters, not just what to change.
+
+## Branch workflow
+
+- Every change starts from a NEW branch created from `main`.
+- Open a PR for that branch.
+- Merge the PR before starting the next task.
+- Delete the branch after it is merged.
+- Do not stack unrelated work on an older branch.
