@@ -14,3 +14,12 @@ export function stepSeededRng(seed: number): RngStep {
     value: ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296,
   };
 }
+
+export function rollSeededDie(seed: number, sides: number): RngStep {
+  const step = stepSeededRng(seed);
+
+  return {
+    nextSeed: step.nextSeed,
+    value: Math.floor(step.value * sides) + 1,
+  };
+}

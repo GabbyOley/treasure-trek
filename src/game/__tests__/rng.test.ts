@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { stepSeededRng } from "../rng";
+import { rollSeededDie, stepSeededRng } from "../rng";
 
 function collectSequence(seed: number, length: number): number[] {
   let currentSeed = seed;
@@ -26,5 +26,27 @@ describe("stepSeededRng", () => {
     const rightSequence = collectSequence(54321, 6);
 
     expect(leftSequence).not.toEqual(rightSequence);
+  });
+});
+
+describe("rollSeededDie", () => {
+  it("produces the same die sequence for the same seed", () => {
+    let firstSeed = 20260712;
+    let secondSeed = 20260712;
+    const firstRolls: number[] = [];
+    const secondRolls: number[] = [];
+
+    for (let index = 0; index < 12; index += 1) {
+      const firstStep = rollSeededDie(firstSeed, 6);
+      const secondStep = rollSeededDie(secondSeed, 6);
+
+      firstSeed = firstStep.nextSeed;
+      secondSeed = secondStep.nextSeed;
+      firstRolls.push(firstStep.value);
+      secondRolls.push(secondStep.value);
+    }
+
+    expect(firstRolls).toEqual(secondRolls);
+    expect(firstRolls.every((roll) => roll >= 1 && roll <= 6)).toBe(true);
   });
 });
