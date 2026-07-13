@@ -83,6 +83,10 @@ function showBoardScreen(): void {
       gameState = applyMove(gameState, { type: "LEAVE_SHOP" });
       boardScreen?.update(gameState);
     },
+    onRestartBoard: () => {
+      gameState = applyMove(gameState, { type: "ENTER_BOARD" });
+      boardScreen?.update(gameState);
+    },
   });
 }
 

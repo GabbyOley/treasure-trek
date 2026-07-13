@@ -21,7 +21,7 @@ import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
-  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action";
+  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "finish";
 };
 
 type PlayerPieceView = {
@@ -54,6 +54,10 @@ const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
     color: PALETTE.mist,
     marker: "action",
   },
+  finish: {
+    color: PALETTE.gold,
+    marker: "finish",
+  },
 };
 
 const RISK_LABELS: Record<BoardRisk, string> = {
@@ -75,6 +79,7 @@ export type BoardScreenHandlers = {
   onBuyShopTreasure: () => void;
   onSellShopTreasure: (cardIndex: number) => void;
   onLeaveShop: () => void;
+  onRestartBoard: () => void;
 };
 
 export function renderBoardScreen(
@@ -100,6 +105,7 @@ export function renderBoardScreen(
           <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
           <div class="board-choice-list" data-board-choices></div>
           <div class="shop-action-list" data-shop-actions></div>
+          <div class="game-over-panel-wrap" data-game-over></div>
           <button
             type="button"
             class="board-roll-button"
@@ -129,6 +135,7 @@ export function renderBoardScreen(
   const playerHands = container.querySelector<HTMLDivElement>("[data-player-hands]");
   const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
   const shopActions = container.querySelector<HTMLDivElement>("[data-shop-actions]");
+  const gameOver = container.querySelector<HTMLDivElement>("[data-game-over]");
   const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
 
   if (
@@ -138,6 +145,7 @@ export function renderBoardScreen(
     playerHands === null ||
     choices === null ||
     shopActions === null ||
+    gameOver === null ||
     rollButton === null
   ) {
     throw new Error("Board controls were not created.");
@@ -154,9 +162,11 @@ export function renderBoardScreen(
     rollButton.disabled =
       nextState.phase === "moving" ||
       nextState.phase === "choosingBranch" ||
-      nextState.phase === "shopping";
+      nextState.phase === "shopping" ||
+      nextState.phase === "gameOver";
     choices.innerHTML = renderBranchChoices(nextState);
     shopActions.innerHTML = renderShopActions(nextState);
+    gameOver.innerHTML = renderGameOver(nextState);
 
     choices
       .querySelectorAll<HTMLButtonElement>("[data-branch-choice]")
@@ -193,6 +203,11 @@ export function renderBoardScreen(
       .querySelectorAll<HTMLButtonElement>("[data-shop-leave]")
       .forEach((button) => {
         button.addEventListener("click", handlers.onLeaveShop);
+      });
+    gameOver
+      .querySelectorAll<HTMLButtonElement>("[data-restart-board]")
+      .forEach((button) => {
+        button.addEventListener("click", handlers.onRestartBoard);
       });
   };
 
@@ -547,6 +562,10 @@ function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
   const midpoint = new THREE.Vector3().addVectors(startVector, endVector).multiplyScalar(0.5);
   const direction = new THREE.Vector3().subVectors(endVector, startVector);
   const length = direction.length();
+  const connectionColor =
+    start.risk === "danger" || end.risk === "danger"
+      ? PALETTE.coral
+      : PALETTE.parchment;
   const connection = new THREE.Mesh(
     new THREE.CylinderGeometry(
       BOARD_PLACEHOLDER.connections.radius,
@@ -555,7 +574,7 @@ function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
       BOARD_PLACEHOLDER.rim.radialSegments,
     ),
     new THREE.MeshStandardMaterial({
-      color: start.region === "Cave" || end.region === "Cave" ? PALETTE.coral : PALETTE.parchment,
+      color: connectionColor,
       roughness: BOARD_PLACEHOLDER.materials.connection.roughness,
       metalness: BOARD_PLACEHOLDER.materials.connection.metalness,
     }),
@@ -722,6 +741,26 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
     horizontal.castShadow = true;
     vertical.castShadow = true;
     group.add(horizontal, vertical);
+    return;
+  }
+
+  if (marker === "finish") {
+    const finishMarker = new THREE.Mesh(
+      new THREE.ConeGeometry(
+        BOARD_PLACEHOLDER.markers.finishRadius,
+        BOARD_PLACEHOLDER.markers.finishHeight,
+        BOARD_PLACEHOLDER.markers.finishSegments,
+      ),
+      new THREE.MeshStandardMaterial({
+        color: PALETTE.gold,
+        roughness: BOARD_PLACEHOLDER.materials.treasure.roughness,
+        metalness: BOARD_PLACEHOLDER.materials.treasure.metalness,
+      }),
+    );
+    finishMarker.position.y = markerHeight + BOARD_PLACEHOLDER.markers.finishYExtra;
+    finishMarker.rotation.y = BOARD_PLACEHOLDER.rotations.trapY;
+    finishMarker.castShadow = true;
+    group.add(finishMarker);
   }
 }
 
@@ -777,6 +816,10 @@ function getBoardStatusText(state: GameState): string {
     const shop = getActiveShop(state);
 
     return `${activeName} is at ${shop?.name ?? "the shop"}. Buy, sell, or leave to end the turn.`;
+  }
+
+  if (state.phase === "gameOver") {
+    return state.gameOverResult?.message ?? "Game Over.";
   }
 
   if (state.phase === "movementComplete") {
@@ -842,6 +885,49 @@ function renderShopActions(state: GameState): string {
         aria-label="Leave shop and end turn"
       >
         Leave Shop / End Turn
+      </button>
+    </section>
+  `;
+}
+
+function renderGameOver(state: GameState): string {
+  const result = state.gameOverResult;
+
+  if (state.phase !== "gameOver" || result === null) {
+    return "";
+  }
+
+  const finisherName =
+    state.players[result.finisherPlayerIndex]?.name ?? "A player";
+  const resultText =
+    result.winnerPlayerIndex === null
+      ? "Tie game."
+      : `${state.players[result.winnerPlayerIndex]?.name ?? "Player"} wins.`;
+  const totals = state.players
+    .map(
+      (player, index) => `
+        <p class="game-over-total ${index === result.winnerPlayerIndex ? "is-winner" : ""}">
+          <span>${player.name}</span>
+          <strong>${result.finalCoins[index] ?? player.coins} coins</strong>
+        </p>
+      `,
+    )
+    .join("");
+
+  return `
+    <section class="game-over-panel" aria-label="Game Over final results">
+      <p class="game-over-title">Game Over</p>
+      <p class="game-over-detail">${finisherName} reached Finish.</p>
+      <p class="game-over-result">${resultText}</p>
+      <div class="game-over-totals">${totals}</div>
+      <p class="game-over-note">No finish bonus is awarded in this v1 prototype.</p>
+      <button
+        type="button"
+        class="shop-action-button primary"
+        data-restart-board
+        aria-label="Restart board"
+      >
+        Restart Board
       </button>
     </section>
   `;
