@@ -28,7 +28,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(page.getByTestId("board-space")).toHaveCount(66);
   await expect(page.getByTestId("player-token")).toHaveCount(2);
   await expect(page.getByTestId("board-track-line").first()).toBeVisible();
-  expect(await page.getByTestId("board-track-line").count()).toBeGreaterThan(40);
+  expect(await page.getByTestId("board-track-line").count()).toBeGreaterThan(25);
   await expect(page.locator('[data-space-id="start"]')).toBeVisible();
   await expect(page.locator('[data-space-id="finish"]')).toBeVisible();
   await expect(page.locator('[data-space-id="meadow-1"] .html-board-space-label')).toHaveText(
@@ -142,6 +142,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
   await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
+  await expect(page.getByTestId("board-debug")).toContainText("clean-lane-v1");
   await expect(page.getByTestId("board-debug")).toContainText("HTML spaces rendered");
   await expect(page.getByTestId("board-debug")).toContainText("66");
   await expect(page.getByTestId("board-debug")).toContainText("HTML players rendered");

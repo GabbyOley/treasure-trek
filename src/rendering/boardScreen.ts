@@ -20,8 +20,8 @@ import {
 import { getTreasureCardName } from "../game/treasureCards";
 import {
   BOARD_PLACEHOLDER,
+  HTML_BOARD_CLEAN_TRACKS,
   HTML_BOARD_LAYOUT,
-  HTML_BOARD_ROUTE_TRACKS,
   PALETTE,
 } from "../utils/constants";
 
@@ -912,30 +912,21 @@ function getBoardPositionMetrics(): {
 }
 
 function renderHtmlBoard(state: GameState): string {
-  const trackLines = HTML_BOARD_ROUTE_TRACKS.flatMap((track) =>
-    track.spaceIds.slice(0, -1).map((spaceId, index) => {
-      const nextSpaceId = track.spaceIds[index + 1];
-      const start = getHtmlBoardPoint(spaceId);
-      const end = getHtmlBoardPoint(nextSpaceId);
-      const deltaX = end.x - start.x;
-      const deltaY = end.y - start.y;
-      const width = Math.hypot(deltaX, deltaY * HTML_BOARD_ASPECT_RATIO);
-      const angle = Math.atan2(deltaY * HTML_BOARD_ASPECT_RATIO, deltaX);
+  const trackLines = HTML_BOARD_CLEAN_TRACKS.map((track) => {
+    const deltaX = track.end.x - track.start.x;
+    const deltaY = track.end.y - track.start.y;
+    const width = Math.hypot(deltaX, deltaY * HTML_BOARD_ASPECT_RATIO);
+    const angle = Math.atan2(deltaY * HTML_BOARD_ASPECT_RATIO, deltaX);
 
-      if (width === 0) {
-        return "";
-      }
-
-      return `
-        <div
-          class="html-board-track-line html-board-track-line-${track.id}"
-          data-testid="board-track-line"
-          aria-hidden="true"
-          style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
-        ></div>
-      `;
-    }),
-  ).join("");
+    return `
+      <div
+        class="html-board-track-line html-board-track-line-${track.id}"
+        data-testid="board-track-line"
+        aria-hidden="true"
+        style="left: ${track.start.x}%; top: ${track.start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
+      ></div>
+    `;
+  }).join("");
   const tiles = BOARD_SPACES.map((space) => {
     const point = getHtmlBoardPoint(space.id);
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
@@ -1117,6 +1108,7 @@ function renderBoardDebug(info: BoardDebugInfo): string {
     <p class="board-debug-title">Board Visibility Debug</p>
     <p>This panel is only for diagnosing blank-board bugs.</p>
     <dl>
+      <div><dt>Board layout</dt><dd>clean-lane-v1</dd></div>
       <div><dt>HTML board CSS size</dt><dd>${info.htmlBoardCssSize}</dd></div>
       <div><dt>HTML board in viewport</dt><dd>${htmlVisibilityLabel}</dd></div>
       <div><dt>HTML spaces rendered</dt><dd>${info.htmlBoardSpaceCount}</dd></div>
