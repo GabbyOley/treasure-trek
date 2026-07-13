@@ -29,6 +29,19 @@ type PlayerPieceView = {
   activeRing: THREE.Mesh;
 };
 
+type BoardDebugInfo = {
+  canvasCssSize: string;
+  canvasBufferSize: string;
+  cameraPosition: string;
+  cameraTarget: string;
+  routeTileCount: number;
+  playerPieceCount: number;
+  boardBounds: string;
+  projectedRouteBounds: string;
+  routeAnchorsOnScreen: number;
+  canvasIntersectsViewport: boolean;
+};
+
 const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
   blank: {
     color: PALETTE.parchment,
@@ -69,6 +82,7 @@ const RISK_LABELS: Record<BoardRisk, string> = {
 export type BoardScreenView = {
   update: (state: GameState) => void;
   destroy: () => void;
+  getDebugInfo: () => BoardDebugInfo;
 };
 
 export type BoardScreenHandlers = {
@@ -92,6 +106,15 @@ export function renderBoardScreen(
       <div class="board-toolbar">
         <button type="button" class="back-button" data-action="back-title" aria-label="Return to title screen">
           Back
+        </button>
+        <button
+          type="button"
+          class="board-debug-toggle"
+          data-action="toggle-board-debug"
+          aria-expanded="false"
+          aria-label="Toggle board visibility debug details"
+        >
+          Board Debug
         </button>
         <p class="board-kicker">Treasure Trek</p>
       </div>
@@ -123,6 +146,13 @@ export function renderBoardScreen(
         <aside class="board-region-panel" aria-label="Board regions">
           ${renderRegionSummaries()}
         </aside>
+        <section
+          class="board-debug-panel"
+          data-board-debug
+          data-testid="board-debug"
+          aria-label="Board Visibility Debug"
+          hidden
+        ></section>
       </div>
     </main>
   `;
@@ -142,6 +172,10 @@ export function renderBoardScreen(
   const shopActions = container.querySelector<HTMLDivElement>("[data-shop-actions]");
   const gameOver = container.querySelector<HTMLDivElement>("[data-game-over]");
   const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
+  const debugToggle = container.querySelector<HTMLButtonElement>(
+    '[data-action="toggle-board-debug"]',
+  );
+  const debugPanel = container.querySelector<HTMLElement>("[data-board-debug]");
 
   if (
     status === null ||
@@ -151,10 +185,23 @@ export function renderBoardScreen(
     choices === null ||
     shopActions === null ||
     gameOver === null ||
-    rollButton === null
+    rollButton === null ||
+    debugToggle === null ||
+    debugPanel === null
   ) {
     throw new Error("Board controls were not created.");
   }
+
+  let isDebugVisible = new URLSearchParams(window.location.search).has("debugBoard");
+
+  const updateDebugPanel = (): void => {
+    debugToggle.setAttribute("aria-expanded", String(isDebugVisible));
+    debugPanel.hidden = !isDebugVisible;
+
+    if (isDebugVisible) {
+      debugPanel.innerHTML = renderBoardDebug(sceneView.getDebugInfo());
+    }
+  };
 
   const updateHud = (nextState: GameState): void => {
     status.textContent = getBoardStatusText(nextState);
@@ -214,12 +261,17 @@ export function renderBoardScreen(
       .forEach((button) => {
         button.addEventListener("click", handlers.onRestartBoard);
       });
+    updateDebugPanel();
   };
 
   container
     .querySelector<HTMLButtonElement>('[data-action="back-title"]')
     ?.addEventListener("click", handlers.onBack);
   rollButton.addEventListener("click", handlers.onRoll);
+  debugToggle.addEventListener("click", () => {
+    isDebugVisible = !isDebugVisible;
+    updateDebugPanel();
+  });
   updateHud(state);
 
   return {
@@ -228,6 +280,7 @@ export function renderBoardScreen(
       updateHud(nextState);
     },
     destroy: sceneView.destroy,
+    getDebugInfo: sceneView.getDebugInfo,
   };
 }
 
@@ -377,6 +430,36 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   resizeObserver.observe(container);
   resize();
 
+  const getDebugInfo = (): BoardDebugInfo => {
+    const canvasRect = renderer.domElement.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const boardBounds = getBoardPositionBounds();
+    const projectedBounds = getProjectedRouteBounds(board, camera, canvasRect);
+    const canvasIntersectsViewport =
+      canvasRect.right > 0 &&
+      canvasRect.bottom > 0 &&
+      canvasRect.left < viewportWidth &&
+      canvasRect.top < viewportHeight;
+
+    return {
+      canvasCssSize: `${formatDebugNumber(canvasRect.width)} x ${formatDebugNumber(
+        canvasRect.height,
+      )}`,
+      canvasBufferSize: `${renderer.domElement.width} x ${renderer.domElement.height}`,
+      cameraPosition: `${formatDebugNumber(camera.position.x)}, ${formatDebugNumber(
+        camera.position.y,
+      )}, ${formatDebugNumber(camera.position.z)}`,
+      cameraTarget: "0, 0, 0",
+      routeTileCount: BOARD_SPACES.length,
+      playerPieceCount: playerPieces.length,
+      boardBounds,
+      projectedRouteBounds: projectedBounds.bounds,
+      routeAnchorsOnScreen: projectedBounds.anchorsOnScreen,
+      canvasIntersectsViewport,
+    };
+  };
+
   let animationFrame = 0;
   const render = (): void => {
     animationFrame = window.requestAnimationFrame(render);
@@ -402,6 +485,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       });
       renderer.domElement.remove();
     },
+    getDebugInfo,
   };
 }
 
@@ -767,6 +851,83 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
     finishMarker.castShadow = true;
     group.add(finishMarker);
   }
+}
+
+function getBoardPositionBounds(): string {
+  const xs = BOARD_SPACES.map((space) => space.position.x);
+  const zs = BOARD_SPACES.map((space) => space.position.z);
+
+  return `x ${formatDebugNumber(Math.min(...xs))} to ${formatDebugNumber(
+    Math.max(...xs),
+  )}, z ${formatDebugNumber(Math.min(...zs))} to ${formatDebugNumber(Math.max(...zs))}`;
+}
+
+function getProjectedRouteBounds(
+  board: THREE.Group,
+  camera: THREE.Camera,
+  canvasRect: DOMRect,
+): { bounds: string; anchorsOnScreen: number } {
+  board.updateMatrixWorld(true);
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let anchorsOnScreen = 0;
+
+  BOARD_SPACES.forEach((space) => {
+    const point = new THREE.Vector3(space.position.x, BOARD_PLACEHOLDER.spaces.y, space.position.z);
+    const projected = board.localToWorld(point).project(camera);
+    const screenX = ((projected.x + 1) / 2) * canvasRect.width;
+    const screenY = ((1 - projected.y) / 2) * canvasRect.height;
+    const isInFrontOfCamera = projected.z >= -1 && projected.z <= 1;
+
+    minX = Math.min(minX, screenX);
+    maxX = Math.max(maxX, screenX);
+    minY = Math.min(minY, screenY);
+    maxY = Math.max(maxY, screenY);
+
+    if (
+      isInFrontOfCamera &&
+      screenX >= 0 &&
+      screenX <= canvasRect.width &&
+      screenY >= 0 &&
+      screenY <= canvasRect.height
+    ) {
+      anchorsOnScreen += 1;
+    }
+  });
+
+  return {
+    bounds: `x ${formatDebugNumber(minX)} to ${formatDebugNumber(
+      maxX,
+    )}, y ${formatDebugNumber(minY)} to ${formatDebugNumber(maxY)}`,
+    anchorsOnScreen,
+  };
+}
+
+function formatDebugNumber(value: number): string {
+  return value.toFixed(1);
+}
+
+function renderBoardDebug(info: BoardDebugInfo): string {
+  const visibilityLabel = info.canvasIntersectsViewport ? "yes" : "no";
+
+  return `
+    <p class="board-debug-title">Board Visibility Debug</p>
+    <p>This panel is only for diagnosing blank-board bugs.</p>
+    <dl>
+      <div><dt>Canvas CSS size</dt><dd>${info.canvasCssSize}</dd></div>
+      <div><dt>Canvas buffer size</dt><dd>${info.canvasBufferSize}</dd></div>
+      <div><dt>Canvas in viewport</dt><dd>${visibilityLabel}</dd></div>
+      <div><dt>Camera position</dt><dd>${info.cameraPosition}</dd></div>
+      <div><dt>Camera target</dt><dd>${info.cameraTarget}</dd></div>
+      <div><dt>Route tile meshes</dt><dd>${info.routeTileCount}</dd></div>
+      <div><dt>Player piece meshes</dt><dd>${info.playerPieceCount}</dd></div>
+      <div><dt>Board world bounds</dt><dd>${info.boardBounds}</dd></div>
+      <div><dt>Projected route bounds</dt><dd>${info.projectedRouteBounds}</dd></div>
+      <div><dt>Route anchors on screen</dt><dd>${info.routeAnchorsOnScreen}</dd></div>
+    </dl>
+  `;
 }
 
 function renderRegionSummaries(): string {
