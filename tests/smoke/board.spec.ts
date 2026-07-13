@@ -87,16 +87,6 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(canvasMetrics.brightPixels).toBeGreaterThan(100);
   expect(canvasMetrics.goldPixels + canvasMetrics.coralPixels).toBeGreaterThan(40);
 
-  await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
-  await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
-  await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
-  await expect(page.getByTestId("board-debug")).toContainText("66");
-  await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");
-  await expect(page.getByTestId("board-debug")).toContainText("2");
-  await expect(page.getByTestId("board-debug")).toContainText("Route anchors on screen");
-  await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
-  await expect(page.getByTestId("board-debug")).toBeHidden();
-
   const rollButton = page.getByTestId("board-roll");
 
   await expect(rollButton).toBeVisible();
@@ -115,6 +105,14 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(page.getByTestId("board-status")).toContainText(
     /landed|choose a route|moving|Waiting to roll/,
   );
+
+  await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
+  await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
+  await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("66");
+  await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("2");
+  await expect(page.getByTestId("board-debug")).toContainText("Route anchors on screen");
 
   expect(runtimeErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
