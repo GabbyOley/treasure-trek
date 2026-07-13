@@ -915,8 +915,14 @@ function renderHtmlBoard(state: GameState): string {
       const nextSpaceId = track.spaceIds[index + 1];
       const start = getHtmlBoardPoint(spaceId);
       const end = getHtmlBoardPoint(nextSpaceId);
-      const width = Math.hypot(end.x - start.x, end.y - start.y);
-      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      const deltaX = end.x - start.x;
+      const deltaY = end.y - start.y;
+      const width = Math.hypot(deltaX, deltaY);
+      const angle = Math.atan2(deltaY, deltaX);
+
+      if (!shouldShowHtmlTrackSegment(width, deltaX, deltaY)) {
+        return "";
+      }
 
       return `
         <div
@@ -990,6 +996,10 @@ function renderHtmlBoard(state: GameState): string {
       ${players}
     </div>
   `;
+}
+
+function shouldShowHtmlTrackSegment(width: number, deltaX: number, deltaY: number): boolean {
+  return width <= 14 && Math.abs(deltaY) <= 2 && Math.abs(deltaX) > 0;
 }
 
 function getHtmlBoardPoint(spaceId: string): { x: number; y: number } {
