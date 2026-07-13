@@ -24,22 +24,55 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await page.getByTestId("play-computer").click();
 
   await expect(page.getByTestId("board-screen")).toBeVisible();
-  await expect(page.getByTestId("board-svg-board")).toBeVisible();
-  await expect(page.getByTestId("board-route-svg")).toBeVisible();
-  await expect(page.locator(".svg-board-space")).toHaveCount(66);
-  await expect(page.locator(".svg-board-player")).toHaveCount(2);
+  await expect(page.getByTestId("html-board")).toBeVisible();
+  await expect(page.getByTestId("html-board-debug")).toContainText(
+    "HTML board rendered: 66 spaces, 2 players",
+  );
+  await expect(page.getByTestId("board-space")).toHaveCount(66);
+  await expect(page.getByTestId("player-token")).toHaveCount(2);
 
-  const boardBox = await page.getByTestId("board-svg-board").boundingBox();
+  const boardBox = await page.getByTestId("html-board").boundingBox();
+  const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
+  const playerTokenBoxes = await page.getByTestId("player-token").evaluateAll((tokens) =>
+    tokens.map((token) => token.getBoundingClientRect()).map((box) => ({
+      left: box.left,
+      top: box.top,
+      width: box.width,
+      height: box.height,
+    })),
+  );
+  const viewport = page.viewportSize();
 
   expect(boardBox?.width ?? 0).toBeGreaterThan(300);
   expect(boardBox?.height ?? 0).toBeGreaterThan(300);
+  expect(firstSpaceBox?.width ?? 0).toBeGreaterThanOrEqual(20);
+  expect(firstSpaceBox?.height ?? 0).toBeGreaterThanOrEqual(20);
+  expect(playerTokenBoxes).toHaveLength(2);
+
+  if (viewport !== null && firstSpaceBox !== null) {
+    expect(firstSpaceBox.x).toBeGreaterThanOrEqual(0);
+    expect(firstSpaceBox.y).toBeGreaterThanOrEqual(0);
+    expect(firstSpaceBox.x + firstSpaceBox.width).toBeLessThanOrEqual(viewport.width);
+    expect(firstSpaceBox.y + firstSpaceBox.height).toBeLessThanOrEqual(viewport.height);
+  }
+
+  playerTokenBoxes.forEach((box) => {
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+
+    if (viewport !== null) {
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.top).toBeGreaterThanOrEqual(0);
+      expect(box.left + box.width).toBeLessThanOrEqual(viewport.width);
+      expect(box.top + box.height).toBeLessThanOrEqual(viewport.height);
+    }
+  });
 
   const rollButton = page.getByTestId("board-roll");
 
   await expect(rollButton).toBeVisible();
   await expect(rollButton).toBeEnabled();
 
-  const viewport = page.viewportSize();
   const regionKeyBox = await page.locator(".board-region-panel").boundingBox();
 
   if (viewport !== null && viewport.width <= 480) {
@@ -47,10 +80,10 @@ test("board opens, renders, and rolls", async ({ page }) => {
   }
 
   const playerOneStart = await page
-    .locator('.svg-board-player[data-player-index="0"] circle')
-    .evaluate((circle) => ({
-      cx: circle.getAttribute("cx"),
-      cy: circle.getAttribute("cy"),
+    .locator('[data-testid="player-token"][data-player-index="0"]')
+    .evaluate((token) => ({
+      left: (token as HTMLElement).style.left,
+      top: (token as HTMLElement).style.top,
     }));
 
   await rollButton.click();
@@ -60,9 +93,9 @@ test("board opens, renders, and rolls", async ({ page }) => {
   );
   await expect
     .poll(async () =>
-      page.locator('.svg-board-player[data-player-index="0"] circle').evaluate((circle) => ({
-        cx: circle.getAttribute("cx"),
-        cy: circle.getAttribute("cy"),
+      page.locator('[data-testid="player-token"][data-player-index="0"]').evaluate((token) => ({
+        left: (token as HTMLElement).style.left,
+        top: (token as HTMLElement).style.top,
       })),
     )
     .not.toEqual(playerOneStart);

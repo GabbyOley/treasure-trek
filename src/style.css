@@ -311,26 +311,14 @@ h1 {
   padding: 16px;
 }
 
-.board-canvas-wrap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0;
-}
-
-.board-canvas-wrap canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  z-index: 0;
-}
-
 .board-map-panel {
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  padding: 0.85rem;
   border: 1px solid rgba(242, 225, 182, 0.22);
   border-radius: 28px;
   background:
@@ -342,91 +330,145 @@ h1 {
   overflow: hidden;
 }
 
-.svg-board {
-  display: block;
+.html-board-debug {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0.52rem 0.75rem;
+  border: 2px solid rgba(224, 184, 92, 0.5);
+  border-radius: 16px;
+  background: rgba(8, 22, 36, 0.76);
+  color: var(--color-gold);
+  font-weight: 900;
+}
+
+.html-board-surface {
+  position: relative;
   width: 100%;
   height: 100%;
-  min-height: 520px;
+  min-height: 500px;
+  border: 3px solid rgba(255, 247, 232, 0.35);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 42% 48%, rgba(47, 93, 80, 0.96) 0 39%, rgba(242, 225, 182, 0.96) 40% 62%, rgba(49, 39, 26, 0.94) 63%),
+    rgba(11, 34, 57, 0.9);
+  box-shadow:
+    inset 0 0 0 2px rgba(8, 22, 36, 0.28),
+    0 12px 32px rgba(0, 0, 0, 0.28);
+  overflow: visible;
 }
 
-.svg-board-backdrop {
-  fill: rgba(8, 22, 36, 0.08);
-}
-
-.svg-board-connections line {
-  stroke: rgba(255, 247, 232, 0.58);
-  stroke-width: 0.1;
-  stroke-linecap: round;
-}
-
-.svg-board-space circle {
-  fill: var(--color-parchment);
-  stroke: rgba(8, 22, 36, 0.92);
-  stroke-width: 0.07;
-  filter: drop-shadow(0 0.04rem 0.04rem rgba(0, 0, 0, 0.4));
-}
-
-.svg-board-space[data-space-type="coin"] circle,
-.svg-board-space[data-space-type="finish"] circle {
-  fill: var(--color-gold);
-}
-
-.svg-board-space[data-space-type="treasure"] circle {
-  fill: var(--color-amber);
-}
-
-.svg-board-space[data-space-type="trap"] circle {
-  fill: var(--color-coral);
-}
-
-.svg-board-space[data-space-type="event"] circle {
-  fill: var(--color-tide);
-}
-
-.svg-board-space[data-space-type="action"] circle {
-  fill: var(--color-mist);
-}
-
-.svg-board-space.is-choice circle {
-  stroke: var(--color-mist);
-  stroke-width: 0.14;
-}
-
-.svg-board-space.has-player circle {
-  stroke-width: 0.1;
-}
-
-.svg-board-space text {
-  fill: var(--color-mist);
-  paint-order: stroke;
-  stroke: rgba(8, 22, 36, 0.88);
-  stroke-width: 0.1;
-  font-size: 0.28px;
+.html-board-failure {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  border: 4px solid var(--color-coral);
+  border-radius: 22px;
+  background: rgba(8, 22, 36, 0.96);
+  color: var(--color-mist);
+  font-size: clamp(1.3rem, 4vw, 2.4rem);
   font-weight: 900;
-  text-anchor: middle;
+  text-align: center;
 }
 
-.svg-board-player circle {
-  fill: var(--color-tide);
-  stroke: var(--color-mist);
-  stroke-width: 0.08;
-  filter: drop-shadow(0 0.04rem 0.04rem rgba(0, 0, 0, 0.46));
+.html-board-connection {
+  position: absolute;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 247, 232, 0.54);
+  box-shadow: 0 0 0 1px rgba(8, 22, 36, 0.18);
+  transform-origin: left center;
+  z-index: 1;
 }
 
-.svg-board-player[data-player-index="0"] circle {
-  fill: var(--color-gold);
+.html-board-space {
+  position: absolute;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 4px solid rgba(8, 22, 36, 0.96);
+  border-radius: 999px;
+  background: var(--color-parchment);
+  box-shadow:
+    0 0 0 2px rgba(255, 247, 232, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.36);
+  transform: translate(-50%, -50%);
 }
 
-.svg-board-player.is-active circle {
-  stroke: var(--color-mist);
-  stroke-width: 0.13;
+.html-board-space[data-space-type="coin"],
+.html-board-space[data-space-type="finish"] {
+  background: var(--color-gold);
 }
 
-.svg-board-player text {
-  fill: var(--color-ink);
-  font-size: 0.28px;
+.html-board-space[data-space-type="treasure"] {
+  background: var(--color-amber);
+}
+
+.html-board-space[data-space-type="trap"] {
+  background: var(--color-coral);
+}
+
+.html-board-space[data-space-type="event"] {
+  background: var(--color-tide);
+}
+
+.html-board-space[data-space-type="action"] {
+  background: var(--color-mist);
+}
+
+.html-board-space.is-choice {
+  box-shadow:
+    0 0 0 5px rgba(255, 247, 232, 0.82),
+    0 0 20px rgba(224, 184, 92, 0.9);
+}
+
+.html-board-space.has-player {
+  border-color: rgba(255, 247, 232, 0.96);
+}
+
+.html-board-space-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  color: var(--color-mist);
+  font-size: 0.86rem;
   font-weight: 900;
-  text-anchor: middle;
+  line-height: 1;
+  text-shadow:
+    0 2px 0 rgba(8, 22, 36, 0.95),
+    0 0 8px rgba(8, 22, 36, 0.95);
+  white-space: nowrap;
+}
+
+.html-board-player {
+  position: absolute;
+  z-index: 4;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 4px solid var(--color-mist);
+  border-radius: 999px;
+  background: var(--color-tide);
+  color: var(--color-ink);
+  font-weight: 950;
+  box-shadow:
+    0 0 0 3px rgba(8, 22, 36, 0.86),
+    0 7px 14px rgba(0, 0, 0, 0.44);
+  transform: translate(calc(-50% + var(--token-offset-x)), -50%);
+}
+
+.html-board-player[data-player-index="0"] {
+  background: var(--color-gold);
+}
+
+.html-board-player.is-active {
+  box-shadow:
+    0 0 0 5px rgba(255, 247, 232, 0.86),
+    0 7px 14px rgba(0, 0, 0, 0.44);
 }
 
 .board-status-panel {
@@ -863,12 +905,41 @@ h1 {
   .board-map-panel {
     grid-column: 1;
     grid-row: 2;
-    min-height: 330px;
+    min-height: 360px;
+    padding: 0.55rem;
     border-radius: 20px;
   }
 
-  .svg-board {
-    min-height: 330px;
+  .html-board-debug {
+    min-height: 44px;
+    padding: 0.42rem 0.55rem;
+    font-size: 0.86rem;
+  }
+
+  .html-board-surface {
+    min-height: 300px;
+    border-width: 2px;
+    border-radius: 18px;
+  }
+
+  .html-board-connection {
+    height: 4px;
+  }
+
+  .html-board-space {
+    width: 24px;
+    height: 24px;
+    border-width: 3px;
+  }
+
+  .html-board-player {
+    width: 32px;
+    height: 32px;
+    border-width: 3px;
+  }
+
+  .html-board-space-label {
+    font-size: 0.68rem;
   }
 
   .board-region-panel {

@@ -31,6 +31,10 @@ type PlayerPieceView = {
 };
 
 type BoardDebugInfo = {
+  htmlBoardCssSize: string;
+  htmlBoardSpaceCount: number;
+  htmlBoardPlayerCount: number;
+  htmlBoardIntersectsViewport: boolean;
   canvasCssSize: string;
   canvasBufferSize: string;
   cameraPosition: string;
@@ -120,15 +124,10 @@ export function renderBoardScreen(
         <p class="board-kicker">Treasure Trek</p>
       </div>
       <div class="board-stage">
-        <div
-          class="board-canvas-wrap"
-          data-testid="board-canvas"
-          aria-label="3D Treasure Trek board placeholder"
-        ></div>
         <section
           class="board-map-panel"
           data-board-map
-          data-testid="board-svg-board"
+          data-testid="html-board"
           aria-label="Playable Treasure Trek board route"
         ></section>
         <section class="board-status-panel" aria-live="polite">
@@ -164,14 +163,13 @@ export function renderBoardScreen(
     </main>
   `;
 
-  const canvasWrap = container.querySelector<HTMLDivElement>(".board-canvas-wrap");
   const boardMap = container.querySelector<HTMLElement>("[data-board-map]");
 
-  if (canvasWrap === null || boardMap === null) {
-    throw new Error("Board containers were not created.");
+  if (boardMap === null) {
+    throw new Error("HTML board container was not created.");
   }
 
-  const sceneView = createBoardScene(canvasWrap, state);
+  let currentState = state;
   const status = container.querySelector<HTMLParagraphElement>("[data-board-status]");
   const roll = container.querySelector<HTMLParagraphElement>("[data-board-roll]");
   const playerCoins = container.querySelector<HTMLDivElement>("[data-player-coins]");
@@ -207,12 +205,13 @@ export function renderBoardScreen(
     debugPanel.hidden = !isDebugVisible;
 
     if (isDebugVisible) {
-      debugPanel.innerHTML = renderBoardDebug(sceneView.getDebugInfo());
+      debugPanel.innerHTML = renderBoardDebug(getHtmlBoardDebugInfo(boardMap, currentState));
     }
   };
 
   const updateHud = (nextState: GameState): void => {
-    boardMap.innerHTML = renderSvgBoard(nextState);
+    currentState = nextState;
+    boardMap.innerHTML = renderHtmlBoard(nextState);
     status.textContent = getBoardStatusText(nextState);
     roll.textContent =
       nextState.lastRoll === null
@@ -285,11 +284,10 @@ export function renderBoardScreen(
 
   return {
     update: (nextState: GameState) => {
-      sceneView.update(nextState);
       updateHud(nextState);
     },
-    destroy: sceneView.destroy,
-    getDebugInfo: sceneView.getDebugInfo,
+    destroy: () => {},
+    getDebugInfo: () => getHtmlBoardDebugInfo(boardMap, currentState),
   };
 }
 
@@ -452,6 +450,10 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       canvasRect.top < viewportHeight;
 
     return {
+      htmlBoardCssSize: "not used by legacy Three helper",
+      htmlBoardSpaceCount: BOARD_SPACES.length,
+      htmlBoardPlayerCount: playerPieces.length,
+      htmlBoardIntersectsViewport: false,
       canvasCssSize: `${formatDebugNumber(canvasRect.width)} x ${formatDebugNumber(
         canvasRect.height,
       )}`,
@@ -497,6 +499,9 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     getDebugInfo,
   };
 }
+
+// Kept as dormant debug/3D scaffolding; the visible playable board is plain HTML.
+void createBoardScene;
 
 function createPlayerPiece(playerIndex: number): PlayerPieceView {
   const group = new THREE.Group();
@@ -899,16 +904,17 @@ function getBoardPositionMetrics(): {
   };
 }
 
-function renderSvgBoard(state: GameState): string {
+function renderHtmlBoard(state: GameState): string {
   const bounds = getBoardPositionMetrics();
   const padding = 0.8;
-  const viewMinX = bounds.minX - padding;
-  const viewMinY = -bounds.maxZ - padding;
-  const viewWidth = bounds.width + padding * 2;
-  const viewHeight = bounds.depth + padding * 2;
-  const toSvgY = (z: number): number => -z;
+  const boardWidth = bounds.width + padding * 2;
+  const boardDepth = bounds.depth + padding * 2;
+  const project = (position: { x: number; z: number }): { x: number; y: number } => ({
+    x: ((position.x - bounds.minX + padding) / boardWidth) * 100,
+    y: ((position.z - bounds.minZ + padding) / boardDepth) * 100,
+  });
 
-  const links = BOARD_SPACES.flatMap((space) =>
+  const connections = BOARD_SPACES.flatMap((space) =>
     space.nextSpaceIds.flatMap((nextSpaceId) => {
       const nextSpace = getBoardSpace(nextSpaceId);
 
@@ -916,28 +922,41 @@ function renderSvgBoard(state: GameState): string {
         return [];
       }
 
+      const start = project(space.position);
+      const end = project(nextSpace.position);
+      const width = Math.hypot(end.x - start.x, end.y - start.y);
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
+
       return [
-        `<line x1="${space.position.x}" y1="${toSvgY(space.position.z)}" x2="${nextSpace.position.x}" y2="${toSvgY(nextSpace.position.z)}" />`,
+        `
+          <div
+            class="html-board-connection"
+            data-testid="board-connection"
+            style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
+          ></div>
+        `,
       ];
     }),
   ).join("");
   const tiles = BOARD_SPACES.map((space) => {
+    const point = project(space.position);
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
     const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
+    const label =
+      space.id === START_SPACE_ID ? "Start" : space.id === "finish" ? "Finish" : "";
 
     return `
-      <g
-        class="svg-board-space ${isChoice ? "is-choice" : ""} ${isCurrentPosition ? "has-player" : ""}"
+      <div
+        class="html-board-space ${isChoice ? "is-choice" : ""} ${isCurrentPosition ? "has-player" : ""}"
+        data-testid="board-space"
         data-space-id="${space.id}"
         data-space-type="${space.type}"
+        title="${space.region}: ${space.name} (${space.type})"
+        aria-label="${space.region}: ${space.name} (${space.type})"
+        style="left: ${point.x}%; top: ${point.y}%;"
       >
-        <circle cx="${space.position.x}" cy="${toSvgY(space.position.z)}" r="0.22"></circle>
-        ${
-          space.id === START_SPACE_ID || space.id === "finish"
-            ? `<text x="${space.position.x}" y="${toSvgY(space.position.z) - 0.38}">${space.id === START_SPACE_ID ? "Start" : "Finish"}</text>`
-            : ""
-        }
-      </g>
+        ${label === "" ? "" : `<span class="html-board-space-label">${label}</span>`}
+      </div>
     `;
   }).join("");
   const players = state.players
@@ -948,37 +967,40 @@ function renderSvgBoard(state: GameState): string {
         return "";
       }
 
-      const offset =
-        BOARD_PLACEHOLDER.player.offsets[index] ??
-        BOARD_PLACEHOLDER.player.fallbackOffset;
-      const x = space.position.x + offset.x * 1.35;
-      const y = toSvgY(space.position.z + offset.z * 1.35);
+      const point = project(space.position);
+      const offset = index === 0 ? -12 : 12;
 
       return `
-        <g
-          class="svg-board-player ${index === state.currentPlayerIndex ? "is-active" : ""}"
+        <div
+          class="html-board-player ${index === state.currentPlayerIndex ? "is-active" : ""}"
+          data-testid="player-token"
           data-player-index="${index}"
+          title="${player.name} on ${space.name}"
+          style="left: ${point.x}%; top: ${point.y}%; --token-offset-x: ${offset}px;"
         >
-          <circle cx="${x}" cy="${y}" r="0.25"></circle>
-          <text x="${x}" y="${y + 0.09}">${index + 1}</text>
-        </g>
+          ${index + 1}
+        </div>
       `;
     })
     .join("");
+  const debugText = `HTML board rendered: ${BOARD_SPACES.length} spaces, ${state.players.length} players`;
+
+  if (BOARD_SPACES.length === 0) {
+    return `
+      <p class="html-board-debug" data-testid="html-board-debug">HTML board rendered: 0 spaces, ${state.players.length} players</p>
+      <div class="html-board-failure" data-testid="board-render-failure">
+        Board render failed: 0 spaces rendered
+      </div>
+    `;
+  }
 
   return `
-    <svg
-      class="svg-board"
-      data-testid="board-route-svg"
-      viewBox="${viewMinX} ${viewMinY} ${viewWidth} ${viewHeight}"
-      role="img"
-      aria-label="Treasure Trek route map with spaces, connections, and player pieces"
-    >
-      <rect class="svg-board-backdrop" x="${viewMinX}" y="${viewMinY}" width="${viewWidth}" height="${viewHeight}" rx="0.65"></rect>
-      <g class="svg-board-connections">${links}</g>
-      <g class="svg-board-spaces">${tiles}</g>
-      <g class="svg-board-players">${players}</g>
-    </svg>
+    <p class="html-board-debug" data-testid="html-board-debug">${debugText}</p>
+    <div class="html-board-surface" data-testid="html-board-surface">
+      ${connections}
+      ${tiles}
+      ${players}
+    </div>
   `;
 }
 
@@ -1029,16 +1051,54 @@ function formatDebugNumber(value: number): string {
   return value.toFixed(1);
 }
 
+function getHtmlBoardDebugInfo(
+  boardMap: HTMLElement,
+  state: GameState,
+): BoardDebugInfo {
+  const boardRect = boardMap.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const htmlBoardIntersectsViewport =
+    boardRect.right > 0 &&
+    boardRect.bottom > 0 &&
+    boardRect.left < viewportWidth &&
+    boardRect.top < viewportHeight;
+
+  return {
+    htmlBoardCssSize: `${formatDebugNumber(boardRect.width)} x ${formatDebugNumber(
+      boardRect.height,
+    )}`,
+    htmlBoardSpaceCount: BOARD_SPACES.length,
+    htmlBoardPlayerCount: state.players.length,
+    htmlBoardIntersectsViewport,
+    canvasCssSize: "not used for main board",
+    canvasBufferSize: "not used for main board",
+    cameraPosition: "not used for main board",
+    cameraTarget: "not used for main board",
+    routeTileCount: BOARD_SPACES.length,
+    playerPieceCount: state.players.length,
+    boardBounds: getBoardPositionBounds(),
+    projectedRouteBounds: "not used for main board",
+    routeAnchorsOnScreen: BOARD_SPACES.length,
+    canvasIntersectsViewport: false,
+  };
+}
+
 function renderBoardDebug(info: BoardDebugInfo): string {
-  const visibilityLabel = info.canvasIntersectsViewport ? "yes" : "no";
+  const htmlVisibilityLabel = info.htmlBoardIntersectsViewport ? "yes" : "no";
+  const canvasVisibilityLabel = info.canvasIntersectsViewport ? "yes" : "no";
 
   return `
     <p class="board-debug-title">Board Visibility Debug</p>
     <p>This panel is only for diagnosing blank-board bugs.</p>
     <dl>
+      <div><dt>HTML board CSS size</dt><dd>${info.htmlBoardCssSize}</dd></div>
+      <div><dt>HTML board in viewport</dt><dd>${htmlVisibilityLabel}</dd></div>
+      <div><dt>HTML spaces rendered</dt><dd>${info.htmlBoardSpaceCount}</dd></div>
+      <div><dt>HTML players rendered</dt><dd>${info.htmlBoardPlayerCount}</dd></div>
       <div><dt>Canvas CSS size</dt><dd>${info.canvasCssSize}</dd></div>
       <div><dt>Canvas buffer size</dt><dd>${info.canvasBufferSize}</dd></div>
-      <div><dt>Canvas in viewport</dt><dd>${visibilityLabel}</dd></div>
+      <div><dt>Canvas in viewport</dt><dd>${canvasVisibilityLabel}</dd></div>
       <div><dt>Camera position</dt><dd>${info.cameraPosition}</dd></div>
       <div><dt>Camera target</dt><dd>${info.cameraTarget}</dd></div>
       <div><dt>Route tile meshes</dt><dd>${info.routeTileCount}</dd></div>
