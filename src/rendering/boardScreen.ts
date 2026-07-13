@@ -96,11 +96,16 @@ export function renderBoardScreen(
         <p class="board-kicker">Treasure Trek</p>
       </div>
       <div class="board-stage">
-        <div class="board-canvas-wrap" aria-label="3D Treasure Trek island board"></div>
+        <div class="board-canvas-wrap" aria-label="3D Treasure Trek board placeholder"></div>
         <section class="board-status-panel" aria-live="polite">
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status></p>
           <p class="board-roll-text" data-board-roll></p>
+          <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
+          <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
+          <div class="board-choice-list" data-board-choices></div>
+          <div class="shop-action-list" data-shop-actions></div>
+          <div class="game-over-panel-wrap" data-game-over></div>
           <button
             type="button"
             class="board-roll-button"
@@ -109,14 +114,8 @@ export function renderBoardScreen(
           >
             Roll
           </button>
-          <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
-          <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
-          <div class="board-choice-list" data-board-choices></div>
-          <div class="shop-action-list" data-shop-actions></div>
-          <div class="game-over-panel-wrap" data-game-over></div>
         </section>
-        <aside class="board-region-panel" aria-label="Board region key">
-          <p class="region-panel-title">Island regions</p>
+        <aside class="board-region-panel" aria-label="Board regions">
           ${renderRegionSummaries()}
         </aside>
       </div>
@@ -258,7 +257,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   );
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.domElement.setAttribute("aria-label", "3D Treasure Trek island board");
+  renderer.domElement.setAttribute("aria-label", "3D Treasure Trek board placeholder");
   renderer.domElement.setAttribute("role", "img");
   container.append(renderer.domElement);
 
@@ -395,10 +394,6 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
           object.geometry.dispose();
           disposeMaterial(object.material);
         }
-        if (object instanceof THREE.Sprite) {
-          object.material.map?.dispose();
-          object.material.dispose();
-        }
       });
       renderer.domElement.remove();
     },
@@ -479,44 +474,62 @@ function createChoiceHighlight(space: BoardSpace): THREE.Mesh {
 function createBoardGroup(): THREE.Group {
   const group = new THREE.Group();
 
-  const ocean = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      BOARD_PLACEHOLDER.ocean.radius,
-      BOARD_PLACEHOLDER.ocean.radius,
-      BOARD_PLACEHOLDER.ocean.height,
-      BOARD_PLACEHOLDER.ocean.segments,
+  const table = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      BOARD_PLACEHOLDER.table.width,
+      BOARD_PLACEHOLDER.table.height,
+      BOARD_PLACEHOLDER.table.depth,
     ),
     new THREE.MeshStandardMaterial({
-      color: PALETTE.deepSea,
-      roughness: BOARD_PLACEHOLDER.materials.ocean.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.ocean.metalness,
+      color: PALETTE.ink,
+      roughness: BOARD_PLACEHOLDER.materials.table.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.table.metalness,
     }),
   );
-  ocean.position.y = BOARD_PLACEHOLDER.ocean.y;
-  ocean.receiveShadow = true;
-  group.add(ocean);
+  table.position.y = BOARD_PLACEHOLDER.table.y;
+  table.receiveShadow = true;
+  group.add(table);
 
-  const island = createTerrainLayer(
-    BOARD_PLACEHOLDER.terrainShape,
-    PALETTE.parchment,
-    BOARD_PLACEHOLDER.island.y,
+  const island = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      BOARD_PLACEHOLDER.island.radius,
+      BOARD_PLACEHOLDER.island.radius * 1.08,
+      BOARD_PLACEHOLDER.island.height,
+      48,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.parchment,
+      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
+    }),
   );
+  island.scale.set(BOARD_PLACEHOLDER.island.scaleX, 1, BOARD_PLACEHOLDER.island.scaleZ);
   island.castShadow = true;
   island.receiveShadow = true;
   group.add(island);
 
-  const grass = createTerrainLayer(
-    BOARD_PLACEHOLDER.terrainShape.map((point) => ({
-      x: point.x * BOARD_PLACEHOLDER.grass.scale,
-      z: point.z * BOARD_PLACEHOLDER.grass.scale,
-    })),
-    PALETTE.meadow,
-    BOARD_PLACEHOLDER.grass.y,
+  const grass = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      BOARD_PLACEHOLDER.island.radius * BOARD_PLACEHOLDER.grass.radiusScaleTop,
+      BOARD_PLACEHOLDER.island.radius * BOARD_PLACEHOLDER.grass.radiusScaleBottom,
+      BOARD_PLACEHOLDER.grass.height,
+      BOARD_PLACEHOLDER.island.segments,
+    ),
+    new THREE.MeshStandardMaterial({
+      color: PALETTE.jungle,
+      roughness: BOARD_PLACEHOLDER.materials.grass.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.grass.metalness,
+    }),
   );
+  grass.position.set(
+    BOARD_PLACEHOLDER.grass.x,
+    BOARD_PLACEHOLDER.grass.y,
+    BOARD_PLACEHOLDER.grass.z,
+  );
+  grass.scale.set(BOARD_PLACEHOLDER.grass.scaleX, 1, BOARD_PLACEHOLDER.grass.scaleZ);
+  grass.castShadow = true;
   grass.receiveShadow = true;
   group.add(grass);
-
-  addRegionLandmarks(group);
 
   BOARD_SPACES.forEach((space) => {
     space.nextSpaceIds.forEach((nextSpaceId) => {
@@ -532,386 +545,7 @@ function createBoardGroup(): THREE.Group {
     group.add(createSpace(space, index));
   });
 
-  addRegionLabels(group);
-
   return group;
-}
-
-function createTerrainLayer(
-  points: readonly { x: number; z: number }[],
-  color: number,
-  y: number,
-): THREE.Mesh {
-  const shape = new THREE.Shape();
-  const [firstPoint, ...rest] = points;
-
-  if (firstPoint !== undefined) {
-    shape.moveTo(firstPoint.x, -firstPoint.z);
-    rest.forEach((point) => {
-      shape.lineTo(point.x, -point.z);
-    });
-    shape.closePath();
-  }
-
-  const terrain = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape),
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-    }),
-  );
-  terrain.rotation.x = BOARD_PLACEHOLDER.rotations.flatTerrainX;
-  terrain.position.y = y;
-
-  return terrain;
-}
-
-function addRegionLandmarks(group: THREE.Group): void {
-  addCampgroundLandmark(group);
-  addCaveLandmark(group);
-  addVolcanoLandmark(group);
-  addWaterfallLandmark(group);
-  addSwampLandmark(group);
-  addCliffLandmark(group);
-  addTreeCluster(group, [
-    { x: 3.9, z: -2.55 },
-    { x: 4.65, z: -2.3 },
-    { x: 5.15, z: -1.7 },
-  ]);
-  addTreeCluster(group, [
-    { x: 5.85, z: -1.15 },
-    { x: 6.55, z: -0.75 },
-    { x: 6.95, z: -1.75 },
-    { x: 7.55, z: -0.65 },
-  ]);
-  addMeadowLandmark(group);
-  addPondLandmark(group);
-  addRiverLandmark(group);
-  addShipwreckLandmark(group);
-  addFinishLandmark(group);
-}
-
-function addCampgroundLandmark(group: THREE.Group): void {
-  const tent = new THREE.Mesh(
-    new THREE.ConeGeometry(
-      BOARD_PLACEHOLDER.landmarks.tentWidth,
-      BOARD_PLACEHOLDER.landmarks.tentHeight,
-      BOARD_PLACEHOLDER.markers.trapSegments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.coral,
-      roughness: BOARD_PLACEHOLDER.materials.trap.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.trap.metalness,
-    }),
-  );
-  tent.position.set(-6.95, BOARD_PLACEHOLDER.landmarks.y + 0.18, -3.2);
-  tent.rotation.y = BOARD_PLACEHOLDER.rotations.trapY;
-  tent.castShadow = true;
-  group.add(tent);
-
-  const fire = new THREE.Mesh(
-    new THREE.ConeGeometry(
-      BOARD_PLACEHOLDER.landmarks.campfireRadius,
-      BOARD_PLACEHOLDER.landmarks.tentHeight,
-      BOARD_PLACEHOLDER.markers.finishSegments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.lava,
-      emissive: PALETTE.coral,
-      roughness: BOARD_PLACEHOLDER.materials.event.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.event.metalness,
-    }),
-  );
-  fire.position.set(-6.35, BOARD_PLACEHOLDER.landmarks.y + 0.16, -2.65);
-  fire.castShadow = true;
-  group.add(fire);
-}
-
-function addCaveLandmark(group: THREE.Group): void {
-  const cave = new THREE.Mesh(
-    new THREE.SphereGeometry(
-      BOARD_PLACEHOLDER.landmarks.rockRadius,
-      BOARD_PLACEHOLDER.spaces.segments,
-      BOARD_PLACEHOLDER.spaces.segments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.rock,
-      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-    }),
-  );
-  cave.position.set(-2.7, BOARD_PLACEHOLDER.landmarks.y + 0.12, -3);
-  cave.scale.set(1.6, 0.65, 1);
-  cave.castShadow = true;
-  group.add(cave);
-
-  const mouth = new THREE.Mesh(
-    new THREE.CircleGeometry(
-      BOARD_PLACEHOLDER.landmarks.rockRadius,
-      BOARD_PLACEHOLDER.spaces.segments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.ink,
-      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-    }),
-  );
-  mouth.position.set(-2.7, BOARD_PLACEHOLDER.landmarks.y + 0.1, -2.55);
-  mouth.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
-  mouth.scale.set(1.15, 0.62, 1);
-  group.add(mouth);
-}
-
-function addVolcanoLandmark(group: THREE.Group): void {
-  const volcano = new THREE.Mesh(
-    new THREE.ConeGeometry(
-      BOARD_PLACEHOLDER.landmarks.volcanoRadius,
-      BOARD_PLACEHOLDER.landmarks.volcanoHeight,
-      BOARD_PLACEHOLDER.spaces.segments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.rock,
-      roughness: BOARD_PLACEHOLDER.materials.trap.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.trap.metalness,
-    }),
-  );
-  volcano.position.set(0.65, BOARD_PLACEHOLDER.landmarks.y + 0.45, 4.75);
-  volcano.castShadow = true;
-  group.add(volcano);
-
-  const lava = new THREE.Mesh(
-    new THREE.ConeGeometry(
-      BOARD_PLACEHOLDER.landmarks.volcanoRadius * 0.38,
-      BOARD_PLACEHOLDER.landmarks.volcanoHeight * 0.32,
-      BOARD_PLACEHOLDER.spaces.segments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.lava,
-      emissive: PALETTE.coral,
-      roughness: BOARD_PLACEHOLDER.materials.event.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.event.metalness,
-    }),
-  );
-  lava.position.set(0.65, BOARD_PLACEHOLDER.landmarks.y + 0.92, 4.75);
-  group.add(lava);
-}
-
-function addWaterfallLandmark(group: THREE.Group): void {
-  addWaterPatch(group, -6.8, 4.6, 0.62, 1.45, PALETTE.foam);
-  addWaterPatch(group, -6.2, 3.75, 0.36, 1.5, PALETTE.tide);
-}
-
-function addSwampLandmark(group: THREE.Group): void {
-  addWaterPatch(group, -5.35, -1.35, 1.4, 1, PALETTE.swamp);
-  [-5.9, -5.35, -4.8].forEach((x) => {
-    const reed = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.025, 0.025, BOARD_PLACEHOLDER.landmarks.reedHeight, 6),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.jungle,
-        roughness: BOARD_PLACEHOLDER.materials.grass.roughness,
-        metalness: BOARD_PLACEHOLDER.materials.grass.metalness,
-      }),
-    );
-    reed.position.set(x, BOARD_PLACEHOLDER.landmarks.y + 0.18, -1.9);
-    reed.rotation.z = (x + 5.35) * 0.35;
-    group.add(reed);
-  });
-}
-
-function addCliffLandmark(group: THREE.Group): void {
-  [
-    { x: -1.3, z: -4.05 },
-    { x: -0.35, z: -4.25 },
-    { x: 0.65, z: -3.95 },
-  ].forEach((point) => {
-    const rock = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(BOARD_PLACEHOLDER.landmarks.rockRadius),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.rock,
-        roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-        metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-      }),
-    );
-    rock.position.set(point.x, BOARD_PLACEHOLDER.landmarks.y + 0.16, point.z);
-    rock.castShadow = true;
-    group.add(rock);
-  });
-}
-
-function addTreeCluster(group: THREE.Group, points: readonly { x: number; z: number }[]): void {
-  points.forEach((point) => {
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.055, BOARD_PLACEHOLDER.landmarks.treeHeight, 8),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.wood,
-        roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-        metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-      }),
-    );
-    trunk.position.set(point.x, BOARD_PLACEHOLDER.landmarks.y + 0.18, point.z);
-    trunk.castShadow = true;
-
-    const canopy = new THREE.Mesh(
-      new THREE.ConeGeometry(
-        BOARD_PLACEHOLDER.landmarks.treeRadius,
-        BOARD_PLACEHOLDER.landmarks.treeHeight,
-        BOARD_PLACEHOLDER.markers.finishSegments,
-      ),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.jungle,
-        roughness: BOARD_PLACEHOLDER.materials.grass.roughness,
-        metalness: BOARD_PLACEHOLDER.materials.grass.metalness,
-      }),
-    );
-    canopy.position.set(point.x, BOARD_PLACEHOLDER.landmarks.y + 0.5, point.z);
-    canopy.castShadow = true;
-    group.add(trunk, canopy);
-  });
-}
-
-function addMeadowLandmark(group: THREE.Group): void {
-  [
-    { x: 2.3, z: 4.55 },
-    { x: 2.75, z: 4.25 },
-    { x: 1.95, z: 4.85 },
-  ].forEach((point) => {
-    const flower = new THREE.Mesh(
-      new THREE.SphereGeometry(BOARD_PLACEHOLDER.landmarks.flowerRadius, 10, 10),
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.amber,
-        roughness: BOARD_PLACEHOLDER.materials.event.roughness,
-        metalness: BOARD_PLACEHOLDER.materials.event.metalness,
-      }),
-    );
-    flower.position.set(point.x, BOARD_PLACEHOLDER.landmarks.y + 0.08, point.z);
-    group.add(flower);
-  });
-}
-
-function addPondLandmark(group: THREE.Group): void {
-  addWaterPatch(group, 5.05, 5.1, 1.05, 0.7, PALETTE.tide);
-}
-
-function addRiverLandmark(group: THREE.Group): void {
-  [
-    { x: 5.55, z: 2.55 },
-    { x: 6.55, z: 2.65 },
-    { x: 7.1, z: 3.55 },
-    { x: 6.35, z: 4.6 },
-  ].forEach((point) => {
-    addWaterPatch(group, point.x, point.z, 0.78, 0.34, PALETTE.tide);
-  });
-}
-
-function addShipwreckLandmark(group: THREE.Group): void {
-  const hull = new THREE.Mesh(
-    new THREE.BoxGeometry(
-      BOARD_PLACEHOLDER.landmarks.shipWidth,
-      BOARD_PLACEHOLDER.landmarks.shipHeight,
-      BOARD_PLACEHOLDER.landmarks.dockDepth,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.wood,
-      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-    }),
-  );
-  hull.position.set(5.25, BOARD_PLACEHOLDER.landmarks.y + 0.12, 6);
-  hull.rotation.y = -0.55;
-  hull.castShadow = true;
-  group.add(hull);
-}
-
-function addFinishLandmark(group: THREE.Group): void {
-  const dock = new THREE.Mesh(
-    new THREE.BoxGeometry(
-      BOARD_PLACEHOLDER.landmarks.dockWidth,
-      BOARD_PLACEHOLDER.landmarks.waterHeight,
-      BOARD_PLACEHOLDER.landmarks.dockDepth,
-    ),
-    new THREE.MeshStandardMaterial({
-      color: PALETTE.wood,
-      roughness: BOARD_PLACEHOLDER.materials.island.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.island.metalness,
-    }),
-  );
-  dock.position.set(1.05, BOARD_PLACEHOLDER.landmarks.y + 0.08, 5.15);
-  dock.castShadow = true;
-  group.add(dock);
-}
-
-function addWaterPatch(
-  group: THREE.Group,
-  x: number,
-  z: number,
-  scaleX: number,
-  scaleZ: number,
-  color: number,
-): void {
-  const water = new THREE.Mesh(
-    new THREE.CylinderGeometry(
-      BOARD_PLACEHOLDER.landmarks.waterWidth,
-      BOARD_PLACEHOLDER.landmarks.waterWidth,
-      BOARD_PLACEHOLDER.landmarks.waterHeight,
-      BOARD_PLACEHOLDER.spaces.segments,
-    ),
-    new THREE.MeshStandardMaterial({
-      color,
-      roughness: BOARD_PLACEHOLDER.materials.ocean.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.ocean.metalness,
-    }),
-  );
-  water.position.set(x, BOARD_PLACEHOLDER.landmarks.y, z);
-  water.scale.set(scaleX, 1, scaleZ);
-  water.receiveShadow = true;
-  group.add(water);
-}
-
-function addRegionLabels(group: THREE.Group): void {
-  Object.entries(BOARD_PLACEHOLDER.labels.anchors).forEach(([region, position]) => {
-    const label = createRegionLabel(region);
-
-    label.position.set(position.x, BOARD_PLACEHOLDER.labels.y, position.z);
-    group.add(label);
-  });
-}
-
-function createRegionLabel(region: string): THREE.Sprite {
-  const canvas = document.createElement("canvas");
-  canvas.width = BOARD_PLACEHOLDER.labels.textureWidth;
-  canvas.height = BOARD_PLACEHOLDER.labels.textureHeight;
-  const context = canvas.getContext("2d");
-
-  if (context !== null) {
-    context.fillStyle = "rgba(8, 22, 36, 0.72)";
-    context.strokeStyle = "rgba(242, 225, 182, 0.55)";
-    context.lineWidth = 3;
-    context.shadowColor = "rgba(0, 0, 0, 0.48)";
-    context.shadowBlur = BOARD_PLACEHOLDER.labels.shadowBlur;
-    context.beginPath();
-    context.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 24);
-    context.fill();
-    context.stroke();
-    context.shadowBlur = 0;
-    context.fillStyle = "#fff7e8";
-    context.font = BOARD_PLACEHOLDER.labels.font;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(region, canvas.width / 2, canvas.height / 2);
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: texture,
-      transparent: true,
-      depthWrite: false,
-    }),
-  );
-  sprite.scale.set(BOARD_PLACEHOLDER.labels.width, BOARD_PLACEHOLDER.labels.height, 1);
-
-  return sprite;
 }
 
 function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
