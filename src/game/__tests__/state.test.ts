@@ -10,7 +10,13 @@ import {
   TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
-import { applyMove, createInitialGameState, type GameState } from "../state";
+import {
+  applyMove,
+  canUseTreasureCard,
+  createInitialGameState,
+  type GameState,
+} from "../state";
+import type { TreasureCardId } from "../treasureCards";
 import { TREASURE_CARDS } from "../treasureCards";
 
 function collectRolls(state: GameState, rollCount: number): number[] {
@@ -36,6 +42,26 @@ function createBoardStateAt(spaceId: string, seed: number): GameState {
         ? {
             ...player,
             positionId: spaceId,
+          }
+        : player,
+    ),
+  };
+}
+
+function createBoardStateWithActiveHand(
+  treasureHand: TreasureCardId[],
+  seed: number,
+  spaceId = START_SPACE_ID,
+): GameState {
+  const boardState = createBoardStateAt(spaceId, seed);
+
+  return {
+    ...boardState,
+    players: boardState.players.map((player, index) =>
+      index === boardState.currentPlayerIndex
+        ? {
+            ...player,
+            treasureHand,
           }
         : player,
     ),
@@ -70,6 +96,7 @@ describe("game state", () => {
       availableBranchSpaceIds: [],
       movementPath: [],
       movingPlayerIndex: FIRST_PLAYER_INDEX,
+      lastRollSource: null,
       lastTurnSummary: null,
       lastLandingEffect: null,
     });
@@ -324,6 +351,127 @@ describe("game state", () => {
     expect(nextState).toBe(branchState);
   });
 
+  it("using Compass removes exactly one Compass from the active player's hand", () => {
+    const compassState = createBoardStateWithActiveHand(
+      ["shop", "compass", "compass"],
+      7,
+    );
+    const nextState = applyMove(compassState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(nextState.players[0]?.treasureHand).toEqual(["shop", "compass"]);
+    expect(nextState.players[1]?.treasureHand).toEqual([]);
+  });
+
+  it("using Compass advances the seeded RNG and creates movement like a normal roll", () => {
+    const compassState = createBoardStateWithActiveHand(["compass"], 2);
+    const nextState = applyMove(compassState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(nextState.seed).not.toBe(compassState.seed);
+    expect(nextState.lastRoll).not.toBeNull();
+    expect(nextState.lastRollSource).toBe("compass");
+    expect(nextState.phase).toBe("choosingBranch");
+    expect(nextState.pendingMovement).toBeGreaterThan(0);
+  });
+
+  it("Compass use can pause at a branch and continue after a legal branch choice", () => {
+    const compassState = createBoardStateWithActiveHand(["compass"], 2);
+    const branchState = applyMove(compassState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "cave-mouth",
+    });
+
+    expect(branchState.phase).toBe("choosingBranch");
+    expect(branchState.availableBranchSpaceIds).toEqual(["field-entry", "cave-mouth"]);
+    expect(nextState.phase).toBe("waitingToRoll");
+    expect(nextState.players[0]?.positionId).toBe("cave-mouth");
+  });
+
+  it("Compass use resolves the final landing space and advances the turn", () => {
+    const compassState = createBoardStateWithActiveHand(["compass"], 7);
+    const nextState = applyMove(compassState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      playerIndex: 0,
+      spaceType: "coin",
+      coinDelta: COIN_SPACE_REWARD,
+    });
+    expect(nextState.players[0]?.coins).toBe(COIN_SPACE_REWARD);
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.lastTurnSummary).toContain("Player 1 used Compass and rolled");
+  });
+
+  it("Compass cannot be used without the card", () => {
+    const boardState = createBoardStateWithActiveHand(["shop"], 7);
+    const nextState = applyMove(boardState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(canUseTreasureCard(boardState, "compass")).toBe(false);
+    expect(nextState).toBe(boardState);
+  });
+
+  it("Compass cannot be used when it is not the active player's legal pre-roll phase", () => {
+    const branchState = applyMove(createBoardStateWithActiveHand(["compass"], 2), {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+    const nextState = applyMove(branchState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(branchState.phase).toBe("choosingBranch");
+    expect(canUseTreasureCard(branchState, "compass")).toBe(false);
+    expect(nextState).toBe(branchState);
+  });
+
+  it("Compass cannot be used during another player's turn", () => {
+    const boardState = createBoardStateAt(START_SPACE_ID, 7);
+    const wrongTurnState = {
+      ...boardState,
+      currentPlayerIndex: 1,
+      players: boardState.players.map((player, index) =>
+        index === 0
+          ? {
+              ...player,
+              treasureHand: ["compass" as const],
+            }
+          : player,
+      ),
+    };
+    const nextState = applyMove(wrongTurnState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(nextState).toBe(wrongTurnState);
+  });
+
+  it("unusable Treasure cards do not trigger effects", () => {
+    const boardState = createBoardStateWithActiveHand(["shop"], 7);
+    const nextState = applyMove(boardState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "shop",
+    });
+
+    expect(canUseTreasureCard(boardState, "shop")).toBe(false);
+    expect(nextState).toBe(boardState);
+  });
+
   it("same seed plus same choices produces deterministic positions and turn order", () => {
     const playRound = (): GameState => {
       const entered = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
@@ -515,6 +663,51 @@ describe("game state", () => {
     const secondResult = playRound();
 
     expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
+    expect(firstResult.players.map((player) => player.coins)).toEqual(
+      secondResult.players.map((player) => player.coins),
+    );
+    expect(firstResult.players.map((player) => player.treasureHand)).toEqual(
+      secondResult.players.map((player) => player.treasureHand),
+    );
+  });
+
+  it("same seed plus same Compass use and choices produces deterministic movement, cards, coins, and turn order", () => {
+    const playCompassRound = (): GameState => {
+      const branchState = applyMove(createBoardStateWithActiveHand(["compass"], 2), {
+        type: "USE_TREASURE_CARD",
+        cardId: "compass",
+      });
+      const playerTwoTurn = applyMove(branchState, {
+        type: "CHOOSE_BRANCH",
+        spaceId: "cave-mouth",
+      });
+
+      return applyMove(
+        {
+          ...playerTwoTurn,
+          players: playerTwoTurn.players.map((player, index) =>
+            index === playerTwoTurn.currentPlayerIndex
+              ? {
+                  ...player,
+                  treasureHand: ["compass"],
+                }
+              : player,
+          ),
+        },
+        {
+          type: "USE_TREASURE_CARD",
+          cardId: "compass",
+        },
+      );
+    };
+    const firstResult = playCompassRound();
+    const secondResult = playCompassRound();
+
+    expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.seed).toBe(secondResult.seed);
     expect(firstResult.players.map((player) => player.positionId)).toEqual(
       secondResult.players.map((player) => player.positionId),
     );

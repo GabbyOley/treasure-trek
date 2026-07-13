@@ -67,6 +67,10 @@ function showBoardScreen(): void {
       gameState = applyMove(gameState, { type: "CHOOSE_BRANCH", spaceId });
       boardScreen?.update(gameState);
     },
+    onUseTreasureCard: (cardId) => {
+      gameState = applyMove(gameState, { type: "USE_TREASURE_CARD", cardId });
+      boardScreen?.update(gameState);
+    },
   });
 }
 

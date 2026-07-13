@@ -8,7 +8,7 @@ import {
   type BoardSpace,
   type BoardSpaceType,
 } from "../game/board";
-import type { GameState } from "../game/state";
+import { canUseTreasureCard, type GameState, type Move } from "../game/state";
 import { getTreasureCardName } from "../game/treasureCards";
 import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
@@ -64,6 +64,7 @@ export type BoardScreenHandlers = {
   onBack: () => void;
   onRoll: () => void;
   onChooseBranch: (spaceId: string) => void;
+  onUseTreasureCard: (cardId: Extract<Move, { type: "USE_TREASURE_CARD" }>["cardId"]) => void;
 };
 
 export function renderBoardScreen(
@@ -146,6 +147,18 @@ export function renderBoardScreen(
       .forEach((button) => {
         button.addEventListener("click", () => {
           handlers.onChooseBranch(button.dataset.branchChoice ?? "");
+        });
+      });
+    playerHands
+      .querySelectorAll<HTMLButtonElement>("[data-treasure-card]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          handlers.onUseTreasureCard(
+            button.dataset.treasureCard as Extract<
+              Move,
+              { type: "USE_TREASURE_CARD" }
+            >["cardId"],
+          );
         });
       });
   };
@@ -753,11 +766,33 @@ function renderPlayerCoins(state: GameState): string {
 
 function renderPlayerHands(state: GameState): string {
   return state.players
-    .map((player) => {
+    .map((player, playerIndex) => {
       const handText =
         player.treasureHand.length === 0
           ? "No Treasure cards"
-          : player.treasureHand.map(getTreasureCardName).join(", ");
+          : player.treasureHand
+              .map((cardId) => {
+                const cardName = getTreasureCardName(cardId);
+                const isUsable =
+                  playerIndex === state.currentPlayerIndex &&
+                  canUseTreasureCard(state, cardId);
+
+                if (!isUsable) {
+                  return `<span class="treasure-card-name">${cardName}</span>`;
+                }
+
+                return `
+                  <button
+                    type="button"
+                    class="treasure-card-button"
+                    data-treasure-card="${cardId}"
+                    aria-label="Use ${cardName}"
+                  >
+                    Use ${cardName}
+                  </button>
+                `;
+              })
+              .join("");
 
       return `
         <p class="player-hand-chip">

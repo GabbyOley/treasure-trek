@@ -18,6 +18,8 @@ export type GamePhase =
   | "choosingBranch"
   | "movementComplete";
 
+export type RollSource = "normal" | "compass";
+
 export type PlayerState = {
   id: string;
   name: string;
@@ -48,6 +50,7 @@ export type GameState = {
   availableBranchSpaceIds: string[];
   movementPath: string[];
   movingPlayerIndex: number;
+  lastRollSource: RollSource | null;
   lastTurnSummary: string | null;
   lastLandingEffect: LandingEffect | null;
 };
@@ -61,6 +64,10 @@ export type Move =
     }
   | {
       type: "ROLL_DIE";
+    }
+  | {
+      type: "USE_TREASURE_CARD";
+      cardId: TreasureCardId;
     }
   | {
       type: "CHOOSE_BRANCH";
@@ -81,6 +88,7 @@ export function createInitialGameState(): GameState {
     availableBranchSpaceIds: [],
     movementPath: [],
     movingPlayerIndex: FIRST_PLAYER_INDEX,
+    lastRollSource: null,
     lastTurnSummary: null,
     lastLandingEffect: null,
   };
@@ -100,6 +108,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         pendingMovement: 0,
         availableBranchSpaceIds: [],
         movementPath: [],
+        lastRollSource: null,
         lastTurnSummary: null,
         lastLandingEffect: null,
       };
@@ -112,6 +121,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         availableBranchSpaceIds: [],
         movementPath: [],
         movingPlayerIndex: state.currentPlayerIndex,
+        lastRollSource: null,
         lastLandingEffect: null,
       };
 
@@ -122,12 +132,13 @@ export function applyMove(state: GameState, move: Move): GameState {
 
       const roll = rollSeededDie(state.seed, TITLE_SCREEN_DIE_SIDES);
 
-      const rolledState = {
+      const rolledState: GameState = {
         ...state,
         seed: roll.nextSeed,
         lastRoll: roll.value,
         movementPath: [],
         movingPlayerIndex: state.currentPlayerIndex,
+        lastRollSource: "normal",
         lastTurnSummary: null,
         lastLandingEffect: null,
       };
@@ -141,6 +152,34 @@ export function applyMove(state: GameState, move: Move): GameState {
         phase: "moving",
         pendingMovement: roll.value,
         availableBranchSpaceIds: [],
+      });
+    }
+
+    case "USE_TREASURE_CARD": {
+      if (!canUseTreasureCard(state, move.cardId)) {
+        return state;
+      }
+
+      const roll = rollSeededDie(state.seed, TITLE_SCREEN_DIE_SIDES);
+      const activePlayer = state.players[state.currentPlayerIndex];
+
+      return continueMovement({
+        ...state,
+        seed: roll.nextSeed,
+        lastRoll: roll.value,
+        phase: "moving",
+        players: removeTreasureCardFromPlayer(
+          state.players,
+          state.currentPlayerIndex,
+          move.cardId,
+        ),
+        pendingMovement: roll.value,
+        availableBranchSpaceIds: [],
+        movementPath: [],
+        movingPlayerIndex: state.currentPlayerIndex,
+        lastRollSource: "compass",
+        lastTurnSummary: `${activePlayer?.name ?? "Player"} used Compass and rolled ${roll.value}.`,
+        lastLandingEffect: null,
       });
     }
 
@@ -165,6 +204,22 @@ export function applyMove(state: GameState, move: Move): GameState {
         movementPath: [move.spaceId],
       });
   }
+}
+
+export function canUseTreasureCard(
+  state: GameState,
+  cardId: TreasureCardId,
+): boolean {
+  if (
+    cardId !== "compass" ||
+    state.phase !== "waitingToRoll" ||
+    state.pendingMovement !== 0 ||
+    state.availableBranchSpaceIds.length > 0
+  ) {
+    return false;
+  }
+
+  return state.players[state.currentPlayerIndex]?.treasureHand.includes(cardId) ?? false;
 }
 
 function continueMovement(state: GameState): GameState {
@@ -243,6 +298,10 @@ function finishTurn(state: GameState): GameState {
   const landedSpace = getBoardSpace(movingPlayer?.positionId ?? START_SPACE_ID);
   const landedName = landedSpace?.name ?? "the board";
   const landingEffect = resolveLandingEffect(state, movingPlayerIndex);
+  const rollSummary =
+    state.lastRollSource === "compass" && state.lastRoll !== null
+      ? `${movingPlayer?.name ?? "Player"} used Compass and rolled ${state.lastRoll}. `
+      : "";
   const playersAfterCoins =
     landingEffect.coinDelta === 0
       ? state.players
@@ -265,7 +324,7 @@ function finishTurn(state: GameState): GameState {
     availableBranchSpaceIds: [],
     movingPlayerIndex,
     currentPlayerIndex: nextPlayerIndex,
-    lastTurnSummary: `${movingPlayer?.name ?? "Player"} landed on ${landedName}. ${landingEffect.message}`,
+    lastTurnSummary: `${rollSummary}${movingPlayer?.name ?? "Player"} landed on ${landedName}. ${landingEffect.message}`,
     lastLandingEffect: landingEffect,
   };
 }
@@ -350,6 +409,29 @@ function addTreasureCardToPlayer(
     return {
       ...player,
       treasureHand: [...player.treasureHand, treasureCardId],
+    };
+  });
+}
+
+function removeTreasureCardFromPlayer(
+  players: readonly PlayerState[],
+  playerIndex: number,
+  treasureCardId: TreasureCardId,
+): PlayerState[] {
+  return players.map((player, index) => {
+    if (index !== playerIndex) {
+      return player;
+    }
+
+    const cardIndex = player.treasureHand.indexOf(treasureCardId);
+
+    if (cardIndex === -1) {
+      return player;
+    }
+
+    return {
+      ...player,
+      treasureHand: player.treasureHand.filter((_, handIndex) => handIndex !== cardIndex),
     };
   });
 }

@@ -382,8 +382,39 @@ h1 {
 }
 
 .player-hand-chip strong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
   color: var(--color-mist);
   font-weight: 700;
+}
+
+.treasure-card-name,
+.treasure-card-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: 999px;
+  padding: 0.48rem 0.72rem;
+}
+
+.treasure-card-name {
+  border: 1px solid rgba(242, 225, 182, 0.16);
+  background: rgba(8, 22, 36, 0.42);
+}
+
+.treasure-card-button {
+  border: 1px solid rgba(224, 184, 92, 0.48);
+  color: var(--color-ink);
+  background: linear-gradient(180deg, var(--color-amber), var(--color-gold));
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.treasure-card-button:focus-visible {
+  outline: 3px solid var(--color-mist);
+  outline-offset: 3px;
 }
 
 .board-choice-list {
