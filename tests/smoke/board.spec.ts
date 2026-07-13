@@ -31,7 +31,11 @@ test("board opens, renders, and rolls", async ({ page }) => {
   const boardSurface = page.getByTestId("html-board-surface");
 
   await expect(boardSurface.getByText("Start")).toBeVisible();
+  await expect(boardSurface.getByText("Key")).toBeVisible();
   await expect(boardSurface.getByText("Finish")).toBeVisible();
+  await expect(page.getByTestId("golden-key-holder")).toContainText(
+    "Golden Key: unclaimed",
+  );
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
   const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
@@ -110,6 +114,8 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(page.getByTestId("board-debug")).toContainText("Player positions");
   await expect(page.getByTestId("board-debug")).toContainText("Start space ID");
   await expect(page.getByTestId("board-debug")).toContainText("Finish space ID");
+  await expect(page.getByTestId("board-debug")).toContainText("Golden Key space ID");
+  await expect(page.getByTestId("board-debug")).toContainText("Golden Key holder");
   await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
   await expect(page.getByTestId("board-debug")).toContainText("45");
   await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");

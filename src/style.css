@@ -407,6 +407,17 @@ h1 {
   background: var(--color-gold);
 }
 
+.html-board-space[data-space-type="golden-key"] {
+  background:
+    radial-gradient(circle at 35% 30%, var(--color-mist) 0 18%, transparent 19%),
+    var(--color-gold);
+  border-color: var(--color-ink);
+  box-shadow:
+    0 0 0 4px rgba(255, 247, 232, 0.8),
+    0 0 18px rgba(224, 184, 92, 0.95),
+    0 6px 14px rgba(0, 0, 0, 0.32);
+}
+
 .html-board-space[data-space-type="treasure"] {
   background: var(--color-amber);
 }
@@ -453,6 +464,10 @@ h1 {
     0 0 0 4px rgba(255, 247, 232, 0.82),
     0 0 18px rgba(224, 184, 92, 0.75),
     0 6px 14px rgba(0, 0, 0, 0.32);
+}
+
+.html-board-space[data-space-id="river-5"] .html-board-space-label {
+  color: var(--color-gold);
 }
 
 .html-board-space[data-space-id="start"] .html-board-space-label {
@@ -555,6 +570,21 @@ h1 {
 
 .player-coin-chip strong {
   color: var(--color-gold);
+}
+
+.golden-key-chip {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(224, 184, 92, 0.72);
+  border-radius: 999px;
+  background: rgba(224, 184, 92, 0.14);
+  color: var(--color-gold);
+  font-weight: 900;
 }
 
 .player-hand-chip {

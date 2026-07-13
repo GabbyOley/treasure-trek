@@ -23,7 +23,7 @@ import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
-  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "finish";
+  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "key" | "finish";
 };
 
 type PlayerPieceView = {
@@ -44,6 +44,8 @@ type BoardDebugInfo = {
   currentPlayerPositions: string;
   startSpaceId: string;
   finishSpaceId: string;
+  goldenKeySpaceId: string;
+  goldenKeyHolder: string;
   availableBranchChoices: string;
   htmlBoardIntersectsViewport: boolean;
   canvasCssSize: string;
@@ -82,6 +84,10 @@ const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
   action: {
     color: PALETTE.mist,
     marker: "action",
+  },
+  "golden-key": {
+    color: PALETTE.gold,
+    marker: "key",
   },
   finish: {
     color: PALETTE.gold,
@@ -493,6 +499,8 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       currentPlayerPositions: "not used by legacy Three helper",
       startSpaceId: START_SPACE_ID,
       finishSpaceId: FINISH_SPACE_ID,
+      goldenKeySpaceId: "river-5",
+      goldenKeyHolder: "not used by legacy Three helper",
       availableBranchChoices: "not used by legacy Three helper",
       htmlBoardIntersectsViewport: false,
       canvasCssSize: `${formatDebugNumber(canvasRect.width)} x ${formatDebugNumber(
@@ -1084,6 +1092,8 @@ function getHtmlBoardLabel(spaceId: string): string {
       return "Pond";
     case "river-2":
       return "River";
+    case "river-5":
+      return "Key";
     case "shipwreck-2":
       return "Shipwreck";
     case "finish":
@@ -1165,6 +1175,11 @@ function getHtmlBoardDebugInfo(
       .join(", "),
     startSpaceId: START_SPACE_ID,
     finishSpaceId: FINISH_SPACE_ID,
+    goldenKeySpaceId: "river-5",
+    goldenKeyHolder:
+      state.goldenKeyHolderPlayerIndex === null
+        ? "none"
+        : state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "unknown",
     availableBranchChoices:
       state.availableBranchSpaceIds.length === 0
         ? "none"
@@ -1199,6 +1214,8 @@ function renderBoardDebug(info: BoardDebugInfo): string {
       <div><dt>Player positions</dt><dd>${info.currentPlayerPositions}</dd></div>
       <div><dt>Start space ID</dt><dd>${info.startSpaceId}</dd></div>
       <div><dt>Finish space ID</dt><dd>${info.finishSpaceId}</dd></div>
+      <div><dt>Golden Key space ID</dt><dd>${info.goldenKeySpaceId}</dd></div>
+      <div><dt>Golden Key holder</dt><dd>${info.goldenKeyHolder}</dd></div>
       <div><dt>Available branch choices</dt><dd>${info.availableBranchChoices}</dd></div>
       <div><dt>Canvas CSS size</dt><dd>${info.canvasCssSize}</dd></div>
       <div><dt>Canvas buffer size</dt><dd>${info.canvasBufferSize}</dd></div>
@@ -1363,6 +1380,10 @@ function renderGameOver(state: GameState): string {
       `,
     )
     .join("");
+  const finishBonusNote =
+    result.finishBonusAwarded > 0
+      ? `Golden Key bonus: +${result.finishBonusAwarded} coins.`
+      : "No Golden Key finish bonus was awarded.";
 
   return `
     <section class="game-over-panel" aria-label="Game Over final results">
@@ -1370,7 +1391,7 @@ function renderGameOver(state: GameState): string {
       <p class="game-over-detail">${finisherName} reached Finish.</p>
       <p class="game-over-result">${resultText}</p>
       <div class="game-over-totals">${totals}</div>
-      <p class="game-over-note">No finish bonus is awarded in this v1 prototype.</p>
+      <p class="game-over-note">${finishBonusNote}</p>
       <button
         type="button"
         class="shop-action-button primary"
@@ -1388,7 +1409,11 @@ function getMovingPlayerName(state: GameState): string {
 }
 
 function renderPlayerCoins(state: GameState): string {
-  return state.players
+  const keyHolder =
+    state.goldenKeyHolderPlayerIndex === null
+      ? "Golden Key: unclaimed"
+      : `Golden Key: ${state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "claimed"}`;
+  const playerCoins = state.players
     .map(
       (player, index) => `
         <p class="player-coin-chip ${index === state.currentPlayerIndex ? "is-active" : ""}">
@@ -1398,6 +1423,8 @@ function renderPlayerCoins(state: GameState): string {
       `,
     )
     .join("");
+
+  return `${playerCoins}<p class="golden-key-chip" data-testid="golden-key-holder">${keyHolder}</p>`;
 }
 
 function renderPlayerHands(state: GameState): string {
