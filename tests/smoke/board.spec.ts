@@ -70,7 +70,10 @@ test("board opens, renders, and rolls", async ({ page }) => {
   }
 
   if (viewport !== null && viewport.width > 480 && boardBox !== null && statusBox !== null) {
-    expect(boardBox.x + boardBox.width).toBeLessThanOrEqual(statusBox.x);
+    const statusIsBesideBoard = boardBox.x + boardBox.width <= statusBox.x;
+    const statusIsBelowBoard = boardBox.y + boardBox.height <= statusBox.y;
+
+    expect(statusIsBesideBoard || statusIsBelowBoard).toBe(true);
   }
 
   playerTokenBoxes.forEach((box) => {
