@@ -8,7 +8,8 @@ export type BoardSpaceType =
   | "treasure"
   | "trap"
   | "event"
-  | "action";
+  | "action"
+  | "finish";
 
 export type BoardRegion = "Campground" | "Field" | "Cave";
 
@@ -32,6 +33,7 @@ export type BoardSpace = {
 };
 
 export const START_SPACE_ID = "start";
+export const FINISH_SPACE_ID = "finish";
 
 export const BOARD_SPACES: readonly BoardSpace[] = [
   {
@@ -217,8 +219,17 @@ export const BOARD_SPACES: readonly BoardSpace[] = [
     type: "treasure",
     region: "Field",
     risk: "quest",
-    nextSpaceIds: [],
+    nextSpaceIds: [FINISH_SPACE_ID],
     position: BOARD_POSITION_HINTS.sliceEnd,
+  },
+  {
+    id: FINISH_SPACE_ID,
+    name: "Finish",
+    type: "finish",
+    region: "Field",
+    risk: "quest",
+    nextSpaceIds: [],
+    position: BOARD_POSITION_HINTS.finish,
   },
 ];
 

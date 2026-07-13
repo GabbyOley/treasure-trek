@@ -7,6 +7,7 @@ import {
   EVEN_ROLL_DIVISOR,
   EVEN_ROLL_REMAINDER,
   EVENT_COIN_REWARD,
+  FINISH_BONUS_V1,
   GOLD_MINE_LARGE_REWARD_ROLL,
   GOLD_MINE_MEDIUM_REWARD_MIN_ROLL,
   HIDDEN_CAVE_TRAP_MAX_ROLL,
@@ -20,7 +21,12 @@ import {
   TITLE_SCREEN_DIE_SIDES,
   TRAP_COIN_LOSS,
 } from "../utils/constants";
-import { getBoardSpace, START_SPACE_ID, type BoardSpaceType } from "./board";
+import {
+  FINISH_SPACE_ID,
+  getBoardSpace,
+  START_SPACE_ID,
+  type BoardSpaceType,
+} from "./board";
 import { getMiniQuest, type MiniQuestId } from "./miniQuests";
 import { rollSeededDie } from "./rng";
 import { getShop, type Shop, type ShopId } from "./shops";
@@ -42,6 +48,7 @@ export type GamePhase =
   | "moving"
   | "choosingBranch"
   | "shopping"
+  | "gameOver"
   | "movementComplete";
 
 export type RollSource = "normal" | "compass";
@@ -55,6 +62,15 @@ export type PlayerState = {
   pathHistory: string[];
   coins: number;
   treasureHand: TreasureCardId[];
+};
+
+export type GameOverResult = {
+  finisherPlayerIndex: number;
+  winnerPlayerIndex: number | null;
+  isTie: boolean;
+  finalCoins: number[];
+  finishBonusAwarded: number;
+  message: string;
 };
 
 export type LandingEffect = {
@@ -92,6 +108,7 @@ export type GameState = {
   lastLandingEffect: LandingEffect | null;
   pendingLandingEffect: LandingEffect | null;
   activeShopId: ShopId | null;
+  gameOverResult: GameOverResult | null;
 };
 
 export type Move =
@@ -143,6 +160,7 @@ export function createInitialGameState(): GameState {
     lastLandingEffect: null,
     pendingLandingEffect: null,
     activeShopId: null,
+    gameOverResult: null,
   };
 }
 
@@ -166,6 +184,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastLandingEffect: null,
         pendingLandingEffect: null,
         activeShopId: null,
+        gameOverResult: null,
       };
 
     case "EXIT_TO_TITLE":
@@ -181,6 +200,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastLandingEffect: null,
         pendingLandingEffect: null,
         activeShopId: null,
+        gameOverResult: null,
       };
 
     case "ROLL_DIE": {
@@ -370,11 +390,63 @@ function continueMovement(state: GameState): GameState {
 }
 
 function finishMovement(state: GameState): GameState {
+  const movingPlayer = state.players[state.currentPlayerIndex];
+
+  if (movingPlayer?.positionId === FINISH_SPACE_ID) {
+    return completeGame(state, state.currentPlayerIndex);
+  }
+
   if (state.movementPurpose === "cardEffect") {
     return finishCardEffectTurn(state);
   }
 
   return finishTurn(state);
+}
+
+function completeGame(state: GameState, finisherPlayerIndex: number): GameState {
+  const gameOverResult = getGameOverResult(state.players, finisherPlayerIndex);
+  const finisherName = state.players[finisherPlayerIndex]?.name ?? "Player";
+
+  return {
+    ...state,
+    phase: "gameOver",
+    pendingMovement: 0,
+    availableBranchSpaceIds: [],
+    movementPurpose: "turn",
+    movingPlayerIndex: finisherPlayerIndex,
+    currentPlayerIndex: finisherPlayerIndex,
+    lastTurnSummary: `${finisherName} reached Finish. ${gameOverResult.message}`,
+    lastLandingEffect: null,
+    pendingLandingEffect: null,
+    activeShopId: null,
+    gameOverResult,
+  };
+}
+
+function getGameOverResult(
+  players: readonly PlayerState[],
+  finisherPlayerIndex: number,
+): GameOverResult {
+  const finalCoins = players.map((player) => player.coins + FINISH_BONUS_V1);
+  const highestCoins = Math.max(...finalCoins);
+  const winningIndexes = finalCoins.flatMap((coins, index) =>
+    coins === highestCoins ? [index] : [],
+  );
+  const isTie = winningIndexes.length > 1;
+  const winnerPlayerIndex = isTie ? null : winningIndexes[0] ?? null;
+  const message =
+    winnerPlayerIndex === null
+      ? "Final coins are tied."
+      : `${players[winnerPlayerIndex]?.name ?? "Player"} wins with ${highestCoins} coins.`;
+
+  return {
+    finisherPlayerIndex,
+    winnerPlayerIndex,
+    isTie,
+    finalCoins,
+    finishBonusAwarded: FINISH_BONUS_V1,
+    message,
+  };
 }
 
 function createInitialPlayers(playerCount: number): PlayerState[] {
@@ -602,6 +674,12 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
       return {
         ...baseEffect,
         message: "Blank space: nothing happened.",
+        coinDelta: 0,
+      };
+    case "finish":
+      return {
+        ...baseEffect,
+        message: "Finish reached: game over.",
         coinDelta: 0,
       };
   }

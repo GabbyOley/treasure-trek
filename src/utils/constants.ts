@@ -52,6 +52,9 @@ export const MINI_QUEST_COIN_LOSS = 10;
 
 export const SHOP_PURCHASE_PRICE = 40;
 
+// Finish placement and Golden Key bonuses are unresolved, so v1 awards no finish bonus.
+export const FINISH_BONUS_V1 = 0;
+
 export const GOLD_MINE_MEDIUM_REWARD_MIN_ROLL = 4;
 
 export const GOLD_MINE_LARGE_REWARD_ROLL = 6;
@@ -97,6 +100,7 @@ export const BOARD_POSITION_HINTS = {
   lookoutCoin: { x: 3.85, z: 0.85 },
   lookoutEvent: { x: 3.05, z: 1.35 },
   sliceEnd: { x: 2.15, z: 1.65 },
+  finish: { x: 1.15, z: 1.35 },
 } as const;
 
 export const BOARD_PLACEHOLDER = {
@@ -204,6 +208,10 @@ export const BOARD_PLACEHOLDER = {
     actionWidth: 0.28,
     actionHeight: 0.07,
     actionDepth: 0.08,
+    finishRadius: 0.18,
+    finishHeight: 0.34,
+    finishSegments: 5,
+    finishYExtra: 0.04,
   },
   rotations: {
     flatMarkerX: Math.PI / 2,

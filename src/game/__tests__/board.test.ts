@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { BOARD_SPACES, START_SPACE_ID, type BoardSpaceType } from "../board";
+import {
+  BOARD_SPACES,
+  FINISH_SPACE_ID,
+  START_SPACE_ID,
+  type BoardSpaceType,
+} from "../board";
 import { MINI_QUESTS } from "../miniQuests";
 import { SHOPS } from "../shops";
 
@@ -11,6 +16,7 @@ const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "trap",
   "event",
   "action",
+  "finish",
 ];
 
 describe("board data", () => {
@@ -24,6 +30,17 @@ describe("board data", () => {
     expect(BOARD_SPACES.some((space) => space.id === START_SPACE_ID)).toBe(true);
   });
 
+  it("has a valid Finish space", () => {
+    const finishSpace = BOARD_SPACES.find((space) => space.id === FINISH_SPACE_ID);
+
+    expect(finishSpace).toMatchObject({
+      id: FINISH_SPACE_ID,
+      name: "Finish",
+      type: "finish",
+      nextSpaceIds: [],
+    });
+  });
+
   it("only connects to existing spaces", () => {
     const ids = new Set(BOARD_SPACES.map((space) => space.id));
     const missingConnections = BOARD_SPACES.flatMap((space) =>
@@ -31,6 +48,27 @@ describe("board data", () => {
     );
 
     expect(missingConnections).toEqual([]);
+  });
+
+  it("Finish is reachable from Start", () => {
+    const spacesById = new Map(BOARD_SPACES.map((space) => [space.id, space]));
+    const visited = new Set<string>();
+    const queue = [START_SPACE_ID];
+
+    while (queue.length > 0) {
+      const spaceId = queue.shift();
+
+      if (spaceId === undefined || visited.has(spaceId)) {
+        continue;
+      }
+
+      visited.add(spaceId);
+      spacesById.get(spaceId)?.nextSpaceIds.forEach((nextSpaceId) => {
+        queue.push(nextSpaceId);
+      });
+    }
+
+    expect(visited.has(FINISH_SPACE_ID)).toBe(true);
   });
 
   it("has at least one branching space", () => {

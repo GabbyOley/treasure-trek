@@ -4,6 +4,7 @@ import {
   COIN_SPACE_REWARD,
   DEFAULT_PLAYER_COUNT,
   EVENT_COIN_REWARD,
+  FINISH_BONUS_V1,
   FIRST_PLAYER_INDEX,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
@@ -16,7 +17,7 @@ import {
   TRAP_COIN_LOSS,
   TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
-import { START_SPACE_ID } from "../board";
+import { FINISH_SPACE_ID, START_SPACE_ID } from "../board";
 import { MINI_QUESTS } from "../miniQuests";
 import { SHOPS } from "../shops";
 import {
@@ -138,6 +139,19 @@ function createShopState(
   return applyMove(fundedState, { type: "ROLL_DIE" });
 }
 
+function createFinishState(playerOneCoins: number, playerTwoCoins: number): GameState {
+  const preFinishState = createBoardStateAt("slice-end", 7);
+  const fundedState = {
+    ...preFinishState,
+    players: preFinishState.players.map((player, index) => ({
+      ...player,
+      coins: index === 0 ? playerOneCoins : playerTwoCoins,
+    })),
+  };
+
+  return applyMove(fundedState, { type: "ROLL_DIE" });
+}
+
 describe("game state", () => {
   it("creates the initial state", () => {
     expect(createInitialGameState()).toEqual({
@@ -174,6 +188,7 @@ describe("game state", () => {
       lastLandingEffect: null,
       pendingLandingEffect: null,
       activeShopId: null,
+      gameOverResult: null,
     });
   });
 
@@ -922,6 +937,119 @@ describe("game state", () => {
     expect(nextState.players[nextState.currentPlayerIndex]?.name).toBe("Player 2");
   });
 
+  it("reaching Finish enters game-over phase", () => {
+    const nextState = createFinishState(20, 10);
+
+    expect(nextState.phase).toBe("gameOver");
+    expect(nextState.players[0]?.positionId).toBe(FINISH_SPACE_ID);
+    expect(nextState.gameOverResult).toMatchObject({
+      finisherPlayerIndex: 0,
+      winnerPlayerIndex: 0,
+      isTie: false,
+    });
+  });
+
+  it("2-player game ends when first player reaches Finish", () => {
+    const nextState = createFinishState(20, 10);
+
+    expect(nextState.phase).toBe("gameOver");
+    expect(nextState.currentPlayerIndex).toBe(0);
+    expect(nextState.pendingMovement).toBe(0);
+    expect(nextState.lastTurnSummary).toContain("Player 1 reached Finish");
+  });
+
+  it("winner is highest coin total", () => {
+    const nextState = createFinishState(30, 10);
+
+    expect(nextState.gameOverResult?.winnerPlayerIndex).toBe(0);
+    expect(nextState.gameOverResult?.finalCoins).toEqual([30, 10]);
+  });
+
+  it("finisher can lose if another player has more coins", () => {
+    const nextState = createFinishState(10, 40);
+
+    expect(nextState.gameOverResult).toMatchObject({
+      finisherPlayerIndex: 0,
+      winnerPlayerIndex: 1,
+      isTie: false,
+    });
+    expect(nextState.gameOverResult?.message).toContain("Player 2 wins");
+  });
+
+  it("ties produce a tie result", () => {
+    const nextState = createFinishState(30, 30);
+
+    expect(nextState.gameOverResult).toMatchObject({
+      winnerPlayerIndex: null,
+      isTie: true,
+      finalCoins: [30, 30],
+    });
+    expect(nextState.gameOverResult?.message).toContain("tied");
+  });
+
+  it("no finish bonus is awarded in this v1", () => {
+    const nextState = createFinishState(20, 10);
+
+    expect(FINISH_BONUS_V1).toBe(0);
+    expect(nextState.gameOverResult?.finishBonusAwarded).toBe(FINISH_BONUS_V1);
+    expect(nextState.gameOverResult?.finalCoins).toEqual([20, 10]);
+  });
+
+  it("rolling is not legal after game over", () => {
+    const gameOverState = createFinishState(20, 10);
+    const nextState = applyMove(gameOverState, { type: "ROLL_DIE" });
+
+    expect(nextState).toBe(gameOverState);
+  });
+
+  it("Compass is not legal after game over", () => {
+    const finishedState = createFinishState(20, 10);
+    const gameOverState = {
+      ...finishedState,
+      players: finishedState.players.map((player, index) =>
+        index === 0
+          ? {
+              ...player,
+              treasureHand: ["compass" as const],
+            }
+          : player,
+      ),
+    };
+    const nextState = applyMove(gameOverState, {
+      type: "USE_TREASURE_CARD",
+      cardId: "compass",
+    });
+
+    expect(canUseTreasureCard(gameOverState, "compass")).toBe(false);
+    expect(nextState).toBe(gameOverState);
+  });
+
+  it("branch choices are not legal after game over", () => {
+    const gameOverState = {
+      ...createFinishState(20, 10),
+      availableBranchSpaceIds: ["field-entry", "cave-mouth"],
+    };
+    const nextState = applyMove(gameOverState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "field-entry",
+    });
+
+    expect(nextState).toBe(gameOverState);
+  });
+
+  it("shop actions are not legal after game over", () => {
+    const gameOverState = createFinishState(SHOP_PURCHASE_PRICE, 10);
+
+    expect(applyMove(gameOverState, { type: "BUY_SHOP_TREASURE" })).toBe(gameOverState);
+    expect(
+      applyMove(gameOverState, {
+        type: "SELL_SHOP_TREASURE",
+        cardIndex: 0,
+      }),
+    ).toBe(gameOverState);
+    expect(applyMove(gameOverState, { type: "LEAVE_SHOP" })).toBe(gameOverState);
+  });
+
   it("Trap draws are deterministic", () => {
     const drawTrap = (): GameState =>
       applyMove(createForkChoiceState(12), {
@@ -1342,5 +1470,18 @@ describe("game state", () => {
       secondResult.players.map((player) => player.treasureHand),
     );
     expect(firstResult.lastTurnSummary).toBe(secondResult.lastTurnSummary);
+  });
+
+  it("same seed plus same choices produces deterministic final state and winner", () => {
+    const playFinish = (): GameState => createFinishState(10, 40);
+    const firstResult = playFinish();
+    const secondResult = playFinish();
+
+    expect(firstResult.phase).toBe("gameOver");
+    expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
+    expect(firstResult.gameOverResult).toEqual(secondResult.gameOverResult);
   });
 });
