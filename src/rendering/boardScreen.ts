@@ -562,6 +562,10 @@ function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
   const midpoint = new THREE.Vector3().addVectors(startVector, endVector).multiplyScalar(0.5);
   const direction = new THREE.Vector3().subVectors(endVector, startVector);
   const length = direction.length();
+  const connectionColor =
+    start.risk === "danger" || end.risk === "danger"
+      ? PALETTE.coral
+      : PALETTE.parchment;
   const connection = new THREE.Mesh(
     new THREE.CylinderGeometry(
       BOARD_PLACEHOLDER.connections.radius,
@@ -570,7 +574,7 @@ function createConnection(start: BoardSpace, end: BoardSpace): THREE.Mesh {
       BOARD_PLACEHOLDER.rim.radialSegments,
     ),
     new THREE.MeshStandardMaterial({
-      color: start.region === "Cave" || end.region === "Cave" ? PALETTE.coral : PALETTE.parchment,
+      color: connectionColor,
       roughness: BOARD_PLACEHOLDER.materials.connection.roughness,
       metalness: BOARD_PLACEHOLDER.materials.connection.metalness,
     }),

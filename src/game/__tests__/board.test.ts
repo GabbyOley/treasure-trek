@@ -4,6 +4,7 @@ import {
   BOARD_SPACES,
   FINISH_SPACE_ID,
   START_SPACE_ID,
+  type BoardRegion,
   type BoardSpaceType,
 } from "../board";
 import { MINI_QUESTS } from "../miniQuests";
@@ -17,6 +18,23 @@ const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "event",
   "action",
   "finish",
+];
+
+const REQUIRED_REGIONS: BoardRegion[] = [
+  "Campground",
+  "Cave",
+  "Volcano",
+  "Field",
+  "Waterfall",
+  "Swamp",
+  "Cliff",
+  "Jungle",
+  "Deep Jungle",
+  "Meadow",
+  "Pond",
+  "River",
+  "Shipwreck",
+  "Finish",
 ];
 
 describe("board data", () => {
@@ -71,11 +89,26 @@ describe("board data", () => {
     expect(visited.has(FINISH_SPACE_ID)).toBe(true);
   });
 
-  it("has at least one branching space", () => {
-    expect(BOARD_SPACES.some((space) => space.nextSpaceIds.length > 1)).toBe(true);
+  it("has a larger prototype-board space count", () => {
+    expect(BOARD_SPACES.length).toBeGreaterThanOrEqual(60);
+    expect(BOARD_SPACES.length).toBeLessThanOrEqual(90);
   });
 
-  it("has at least one reconnect point", () => {
+  it("includes every required island region", () => {
+    const regions = new Set(BOARD_SPACES.map((space) => space.region));
+
+    REQUIRED_REGIONS.forEach((region) => {
+      expect(regions.has(region)).toBe(true);
+    });
+  });
+
+  it("has multiple branching spaces", () => {
+    const branchingSpaces = BOARD_SPACES.filter((space) => space.nextSpaceIds.length > 1);
+
+    expect(branchingSpaces.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("has multiple reconnect points", () => {
     const incomingCounts = new Map<string, number>();
 
     BOARD_SPACES.forEach((space) => {
@@ -84,7 +117,56 @@ describe("board data", () => {
       });
     });
 
-    expect([...incomingCounts.values()].some((count) => count > 1)).toBe(true);
+    const reconnectPoints = [...incomingCounts.values()].filter((count) => count > 1);
+
+    expect(reconnectPoints.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("offers a final three-way Meadow, Pond, or River choice", () => {
+    const finalChoice = BOARD_SPACES.find((space) => space.id === "final-choice");
+
+    expect(finalChoice?.nextSpaceIds).toEqual(["meadow-1", "pond-1", "river-1"]);
+  });
+
+  it("River reaches Shipwreck before Finish", () => {
+    const spacesById = new Map(BOARD_SPACES.map((space) => [space.id, space]));
+    const queue: { spaceId: string; hasReachedShipwreck: boolean }[] = [
+      { spaceId: "river-1", hasReachedShipwreck: false },
+    ];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      const route = queue.shift();
+
+      if (route === undefined) {
+        continue;
+      }
+
+      const visitKey = `${route.spaceId}:${String(route.hasReachedShipwreck)}`;
+
+      if (visited.has(visitKey)) {
+        continue;
+      }
+
+      visited.add(visitKey);
+
+      if (route.spaceId === FINISH_SPACE_ID && route.hasReachedShipwreck) {
+        expect(route.hasReachedShipwreck).toBe(true);
+        return;
+      }
+
+      const space = spacesById.get(route.spaceId);
+
+      space?.nextSpaceIds.forEach((nextSpaceId) => {
+        queue.push({
+          spaceId: nextSpaceId,
+          hasReachedShipwreck:
+            route.hasReachedShipwreck || nextSpaceId.startsWith("shipwreck-"),
+        });
+      });
+    }
+
+    throw new Error("River did not reach Finish through Shipwreck.");
   });
 
   it("contains every required space type", () => {
@@ -125,7 +207,7 @@ describe("board data", () => {
     );
     const invalidShopIds = assignedShopIds.filter((shopId) => !shopIds.has(shopId));
 
-    expect(assignedShopIds.length).toBeGreaterThan(0);
+    expect(assignedShopIds.length).toBeGreaterThanOrEqual(2);
     expect(invalidShopIds).toEqual([]);
   });
 });

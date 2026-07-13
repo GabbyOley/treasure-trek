@@ -140,7 +140,7 @@ function createShopState(
 }
 
 function createFinishState(playerOneCoins: number, playerTwoCoins: number): GameState {
-  const preFinishState = createBoardStateAt("slice-end", 7);
+  const preFinishState = createBoardStateAt("finish-gate", 7);
   const fundedState = {
     ...preFinishState,
     players: preFinishState.players.map((player, index) => ({
