@@ -1,9 +1,15 @@
 import {
   DEFAULT_PLAYER_COUNT,
   FIRST_PLAYER_INDEX,
+  BURIED_TREASURE_TWO_CARD_MIN_ROLL,
   CARD_FIXED_MOVE_STEPS,
   COIN_SPACE_REWARD,
+  EVEN_ROLL_DIVISOR,
+  EVEN_ROLL_REMAINDER,
   EVENT_COIN_REWARD,
+  GOLD_MINE_LARGE_REWARD_ROLL,
+  GOLD_MINE_MEDIUM_REWARD_MIN_ROLL,
+  HIDDEN_CAVE_TRAP_MAX_ROLL,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   MAX_TREASURE_HAND_SIZE,
@@ -664,9 +670,9 @@ function resolveActionLanding(
 
   if (miniQuest.id === "gold-mine") {
     const coinDelta =
-      questRoll.value === TITLE_SCREEN_DIE_SIDES
+      questRoll.value === GOLD_MINE_LARGE_REWARD_ROLL
         ? MINI_QUEST_LARGE_COIN_REWARD
-        : questRoll.value >= 4
+        : questRoll.value >= GOLD_MINE_MEDIUM_REWARD_MIN_ROLL
           ? MINI_QUEST_MEDIUM_COIN_REWARD
           : MINI_QUEST_SMALL_COIN_REWARD;
 
@@ -680,7 +686,9 @@ function resolveActionLanding(
 
   if (miniQuest.id === "fishing-spot") {
     const coinDelta =
-      questRoll.value % 2 === 0 ? MINI_QUEST_MEDIUM_COIN_REWARD : 0;
+      questRoll.value % EVEN_ROLL_DIVISOR === EVEN_ROLL_REMAINDER
+        ? MINI_QUEST_MEDIUM_COIN_REWARD
+        : 0;
 
     return {
       ...questEffect,
@@ -694,7 +702,7 @@ function resolveActionLanding(
   }
 
   if (miniQuest.id === "monkey-business") {
-    if (questRoll.value % 2 === 1) {
+    if (questRoll.value % EVEN_ROLL_DIVISOR !== EVEN_ROLL_REMAINDER) {
       return {
         ...questEffect,
         message: `${miniQuest.name}: rolled ${questRoll.value}, lost ${MINI_QUEST_COIN_LOSS} coins.`,
@@ -726,7 +734,8 @@ function resolveActionLanding(
   }
 
   if (miniQuest.id === "buried-treasure") {
-    const drawCount = questRoll.value >= 5 ? 2 : 1;
+    const drawCount =
+      questRoll.value >= BURIED_TREASURE_TWO_CARD_MIN_ROLL ? 2 : 1;
     const treasureDraw = drawTreasureCardsForPlayer(
       state.players[playerIndex],
       questRoll.nextSeed,
@@ -749,7 +758,7 @@ function resolveActionLanding(
     };
   }
 
-  if (questRoll.value <= 3) {
+  if (questRoll.value <= HIDDEN_CAVE_TRAP_MAX_ROLL) {
     return resolveTrapEffectFromSeed(
       questRoll.nextSeed,
       questEffect,
