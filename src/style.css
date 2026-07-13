@@ -370,37 +370,30 @@ h1 {
   text-align: center;
 }
 
-.html-board-route-guide {
+.html-board-track-line {
   position: absolute;
   z-index: 0;
-  height: 12px;
+  height: 9px;
   border-radius: 999px;
-  background: rgba(105, 89, 58, 0.58);
+  background: rgba(105, 89, 58, 0.78);
   box-shadow:
-    inset 0 0 0 2px rgba(255, 247, 232, 0.16),
-    0 2px 8px rgba(8, 22, 36, 0.16);
+    inset 0 0 0 2px rgba(255, 247, 232, 0.22),
+    0 3px 8px rgba(8, 22, 36, 0.18);
   transform-origin: left center;
 }
 
-.html-board-connection {
-  position: absolute;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(8, 22, 36, 0.3);
-  box-shadow: none;
-  opacity: 0.24;
-  transform-origin: left center;
-  z-index: 1;
+.html-board-track-line-field-branch,
+.html-board-track-line-jungle-branch,
+.html-board-track-line-meadow-lane,
+.html-board-track-line-pond-lane {
+  background: rgba(43, 108, 126, 0.72);
 }
 
-.html-board-connection.is-branch {
-  height: 3px;
-  background: rgba(43, 108, 126, 0.42);
-  opacity: 0.34;
-}
-
-.html-board-connection.is-long {
-  opacity: 0.12;
+.html-board-track-line-cave-branch,
+.html-board-track-line-deep-jungle-branch,
+.html-board-track-line-river-lane,
+.html-board-track-line-swamp-cliff-branch {
+  background: rgba(126, 82, 55, 0.72);
 }
 
 .html-board-space {
@@ -476,6 +469,16 @@ h1 {
 .html-board-space[data-space-id="final-choice"] .html-board-space-label {
   bottom: auto;
   top: calc(100% + 0.2rem);
+}
+
+.html-board-space[data-space-id="field-entry"] .html-board-space-label,
+.html-board-space[data-space-id="cave-mouth"] .html-board-space-label,
+.html-board-space[data-space-id="jungle-fork"] .html-board-space-label {
+  left: auto;
+  right: calc(100% + 0.35rem);
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .html-board-space[data-space-id="meadow-1"] .html-board-space-label {
@@ -1008,12 +1011,8 @@ h1 {
     border-radius: 18px;
   }
 
-  .html-board-connection {
-    height: 2px;
-  }
-
-  .html-board-route-guide {
-    height: 8px;
+  .html-board-track-line {
+    height: 7px;
   }
 
   .html-board-space {

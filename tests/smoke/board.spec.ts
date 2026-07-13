@@ -27,8 +27,25 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(page.getByTestId("html-board")).toBeVisible();
   await expect(page.getByTestId("board-space")).toHaveCount(66);
   await expect(page.getByTestId("player-token")).toHaveCount(2);
+  await expect(page.getByTestId("board-track-line").first()).toBeVisible();
+  expect(await page.getByTestId("board-track-line").count()).toBeGreaterThan(40);
   await expect(page.locator('[data-space-id="start"]')).toBeVisible();
   await expect(page.locator('[data-space-id="finish"]')).toBeVisible();
+  await expect(page.locator('[data-space-id="meadow-1"] .html-board-space-label')).toHaveText(
+    "Meadow",
+  );
+  await expect(page.locator('[data-space-id="pond-1"] .html-board-space-label')).toHaveText(
+    "Pond",
+  );
+  await expect(page.locator('[data-space-id="river-1"] .html-board-space-label')).toHaveText(
+    "River",
+  );
+  await expect(page.locator('[data-space-id="shipwreck-1"] .html-board-space-label')).toHaveText(
+    "Shipwreck",
+  );
+  await expect(page.locator('[data-space-id="finish"] .html-board-space-label')).toHaveText(
+    "Finish",
+  );
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
   const statusBox = await page.locator(".board-status-panel").boundingBox();

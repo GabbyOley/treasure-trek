@@ -20,9 +20,8 @@ import {
 import { getTreasureCardName } from "../game/treasureCards";
 import {
   BOARD_PLACEHOLDER,
-  HTML_BOARD_CONNECTION_BENDS,
   HTML_BOARD_LAYOUT,
-  HTML_BOARD_ROUTE_GUIDES,
+  HTML_BOARD_ROUTE_TRACKS,
   PALETTE,
 } from "../utils/constants";
 
@@ -911,42 +910,22 @@ function getBoardPositionMetrics(): {
 }
 
 function renderHtmlBoard(state: GameState): string {
-  const routeGuides = HTML_BOARD_ROUTE_GUIDES.map(
-    (guide) => `
-      <div
-        class="html-board-route-guide"
-        aria-hidden="true"
-        style="left: ${guide.x}%; top: ${guide.y}%; width: ${guide.width}%; transform: rotate(${guide.angle}deg);"
-      ></div>
-    `,
-  ).join("");
-  const connections = BOARD_SPACES.flatMap((space) =>
-    space.nextSpaceIds.flatMap((nextSpaceId) => {
-      const nextSpace = getBoardSpace(nextSpaceId);
+  const trackLines = HTML_BOARD_ROUTE_TRACKS.flatMap((track) =>
+    track.spaceIds.slice(0, -1).map((spaceId, index) => {
+      const nextSpaceId = track.spaceIds[index + 1];
+      const start = getHtmlBoardPoint(spaceId);
+      const end = getHtmlBoardPoint(nextSpaceId);
+      const width = Math.hypot(end.x - start.x, end.y - start.y);
+      const angle = Math.atan2(end.y - start.y, end.x - start.x);
 
-      if (nextSpace === undefined) {
-        return [];
-      }
-
-      const start = getHtmlBoardPoint(space.id);
-      const end = getHtmlBoardPoint(nextSpace.id);
-      const isBranch = space.nextSpaceIds.length > 1;
-      const pathPoints = getHtmlConnectionPoints(space.id, nextSpace.id, start, end);
-
-      return pathPoints.slice(0, -1).map((segmentStart, index) => {
-        const segmentEnd = pathPoints[index + 1];
-        const width = Math.hypot(segmentEnd.x - segmentStart.x, segmentEnd.y - segmentStart.y);
-        const angle = Math.atan2(segmentEnd.y - segmentStart.y, segmentEnd.x - segmentStart.x);
-        const isLong = width > 14;
-
-        return `
-          <div
-            class="html-board-connection ${isBranch ? "is-branch" : ""} ${isLong ? "is-long" : ""}"
-            data-testid="board-connection"
-            style="left: ${segmentStart.x}%; top: ${segmentStart.y}%; width: ${width}%; transform: rotate(${angle}rad);"
-          ></div>
-        `;
-      });
+      return `
+        <div
+          class="html-board-track-line html-board-track-line-${track.id}"
+          data-testid="board-track-line"
+          aria-hidden="true"
+          style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
+        ></div>
+      `;
     }),
   ).join("");
   const tiles = BOARD_SPACES.map((space) => {
@@ -1006,8 +985,7 @@ function renderHtmlBoard(state: GameState): string {
 
   return `
     <div class="html-board-surface" data-testid="html-board-surface">
-      ${routeGuides}
-      ${connections}
+      ${trackLines}
       ${tiles}
       ${players}
     </div>
@@ -1026,6 +1004,12 @@ function getHtmlBoardLabel(spaceId: string): string {
   switch (spaceId) {
     case START_SPACE_ID:
       return "Start";
+    case "field-entry":
+      return "Field";
+    case "cave-mouth":
+      return "Cave";
+    case "jungle-fork":
+      return "Jungle";
     case "final-choice":
       return "Choice";
     case "meadow-1":
@@ -1041,18 +1025,6 @@ function getHtmlBoardLabel(spaceId: string): string {
     default:
       return "";
   }
-}
-
-function getHtmlConnectionPoints(
-  fromSpaceId: string,
-  toSpaceId: string,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): { x: number; y: number }[] {
-  const bendKey = `${fromSpaceId}>${toSpaceId}` as keyof typeof HTML_BOARD_CONNECTION_BENDS;
-  const bends = HTML_BOARD_CONNECTION_BENDS[bendKey] ?? [];
-
-  return [start, ...bends, end];
 }
 
 function getProjectedRouteBounds(
