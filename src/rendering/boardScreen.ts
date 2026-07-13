@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
   BOARD_SPACES,
   getBoardSpace,
+  START_SPACE_ID,
   type BoardRegion,
   type BoardRisk,
   type BoardSpace,
@@ -123,14 +124,13 @@ export function renderBoardScreen(
           class="board-canvas-wrap"
           data-testid="board-canvas"
           aria-label="3D Treasure Trek board placeholder"
-        >
-          <div
-            class="board-visibility-layer"
-            data-board-visibility-layer
-            data-testid="board-visibility-layer"
-            aria-hidden="true"
-          ></div>
-        </div>
+        ></div>
+        <section
+          class="board-map-panel"
+          data-board-map
+          data-testid="board-svg-board"
+          aria-label="Playable Treasure Trek board route"
+        ></section>
         <section class="board-status-panel" aria-live="polite">
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status data-testid="board-status"></p>
@@ -165,9 +165,10 @@ export function renderBoardScreen(
   `;
 
   const canvasWrap = container.querySelector<HTMLDivElement>(".board-canvas-wrap");
+  const boardMap = container.querySelector<HTMLElement>("[data-board-map]");
 
-  if (canvasWrap === null) {
-    throw new Error("Board canvas container was not created.");
+  if (canvasWrap === null || boardMap === null) {
+    throw new Error("Board containers were not created.");
   }
 
   const sceneView = createBoardScene(canvasWrap, state);
@@ -211,6 +212,7 @@ export function renderBoardScreen(
   };
 
   const updateHud = (nextState: GameState): void => {
+    boardMap.innerHTML = renderSvgBoard(nextState);
     status.textContent = getBoardStatusText(nextState);
     roll.textContent =
       nextState.lastRoll === null
@@ -311,7 +313,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     BOARD_PLACEHOLDER.camera.position.y,
     BOARD_PLACEHOLDER.camera.position.z,
   );
-  const cameraTarget = new THREE.Vector3();
+  camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -325,13 +327,6 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   renderer.domElement.setAttribute("aria-label", "3D Treasure Trek board placeholder");
   renderer.domElement.setAttribute("role", "img");
   container.append(renderer.domElement);
-  const visibilityLayer = container.querySelector<HTMLDivElement>(
-    "[data-board-visibility-layer]",
-  );
-
-  if (visibilityLayer === null) {
-    throw new Error("Board visibility layer was not created.");
-  }
 
   const board = createBoardGroup();
   const playerPieces = state.players.map((_, index) => createPlayerPiece(index));
@@ -414,7 +409,6 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
 
   const update = (nextState: GameState): void => {
     window.clearTimeout(movementTimer);
-    renderVisibilityLayer(visibilityLayer, nextState);
     updateActivePlayerStyles(nextState);
     updateChoiceHighlights({
       ...nextState,
@@ -437,7 +431,6 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     const safeHeight = Math.max(height, 1);
 
     camera.aspect = safeWidth / safeHeight;
-    fitCameraToBoard(camera, cameraTarget, safeWidth, safeHeight);
     camera.updateProjectionMatrix();
     renderer.setSize(safeWidth, safeHeight, false);
   };
@@ -466,9 +459,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       cameraPosition: `${formatDebugNumber(camera.position.x)}, ${formatDebugNumber(
         camera.position.y,
       )}, ${formatDebugNumber(camera.position.z)}`,
-      cameraTarget: `${formatDebugNumber(cameraTarget.x)}, ${formatDebugNumber(
-        cameraTarget.y,
-      )}, ${formatDebugNumber(cameraTarget.z)}`,
+      cameraTarget: "0, 0, 0",
       routeTileCount: BOARD_SPACES.length,
       playerPieceCount: playerPieces.length,
       boardBounds,
@@ -547,28 +538,6 @@ function createPlayerPiece(playerIndex: number): PlayerPieceView {
     group,
     activeRing,
   };
-}
-
-function fitCameraToBoard(
-  camera: THREE.PerspectiveCamera,
-  cameraTarget: THREE.Vector3,
-  width: number,
-  height: number,
-): void {
-  const bounds = getBoardPositionMetrics();
-  const aspect = width / Math.max(height, 1);
-  const fitSpan =
-    Math.max(bounds.width / Math.max(aspect, 0.1), bounds.depth) +
-    BOARD_PLACEHOLDER.camera.fitPadding;
-  const distance = THREE.MathUtils.clamp(
-    fitSpan * BOARD_PLACEHOLDER.camera.fitDistanceScale,
-    BOARD_PLACEHOLDER.camera.fitMinDistance,
-    BOARD_PLACEHOLDER.camera.fitMaxDistance,
-  );
-
-  cameraTarget.set(bounds.centerX, 0, bounds.centerZ);
-  camera.position.set(bounds.centerX, distance, bounds.centerZ + distance);
-  camera.lookAt(cameraTarget);
 }
 
 function getPlayerColor(playerIndex: number): number {
@@ -930,17 +899,14 @@ function getBoardPositionMetrics(): {
   };
 }
 
-function renderVisibilityLayer(layer: HTMLDivElement, state: GameState): void {
+function renderSvgBoard(state: GameState): string {
   const bounds = getBoardPositionMetrics();
-  const project = (position: { x: number; z: number }): { x: number; y: number } => {
-    const x = ((position.x - bounds.minX) / Math.max(bounds.width, 1)) * 100;
-    const y = ((position.z - bounds.minZ) / Math.max(bounds.depth, 1)) * 100;
-
-    return {
-      x,
-      y,
-    };
-  };
+  const padding = 0.8;
+  const viewMinX = bounds.minX - padding;
+  const viewMinY = -bounds.maxZ - padding;
+  const viewWidth = bounds.width + padding * 2;
+  const viewHeight = bounds.depth + padding * 2;
+  const toSvgY = (z: number): number => -z;
 
   const links = BOARD_SPACES.flatMap((space) =>
     space.nextSpaceIds.flatMap((nextSpaceId) => {
@@ -950,24 +916,28 @@ function renderVisibilityLayer(layer: HTMLDivElement, state: GameState): void {
         return [];
       }
 
-      const start = project(space.position);
-      const end = project(nextSpace.position);
-
       return [
-        `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" />`,
+        `<line x1="${space.position.x}" y1="${toSvgY(space.position.z)}" x2="${nextSpace.position.x}" y2="${toSvgY(nextSpace.position.z)}" />`,
       ];
     }),
   ).join("");
   const tiles = BOARD_SPACES.map((space) => {
-    const point = project(space.position);
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
+    const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
 
     return `
-      <span
-        class="board-visibility-tile ${isChoice ? "is-choice" : ""}"
+      <g
+        class="svg-board-space ${isChoice ? "is-choice" : ""} ${isCurrentPosition ? "has-player" : ""}"
+        data-space-id="${space.id}"
         data-space-type="${space.type}"
-        style="left: ${point.x}%; top: ${point.y}%"
-      ></span>
+      >
+        <circle cx="${space.position.x}" cy="${toSvgY(space.position.z)}" r="0.22"></circle>
+        ${
+          space.id === START_SPACE_ID || space.id === "finish"
+            ? `<text x="${space.position.x}" y="${toSvgY(space.position.z) - 0.38}">${space.id === START_SPACE_ID ? "Start" : "Finish"}</text>`
+            : ""
+        }
+      </g>
     `;
   }).join("");
   const players = state.players
@@ -978,24 +948,37 @@ function renderVisibilityLayer(layer: HTMLDivElement, state: GameState): void {
         return "";
       }
 
-      const point = project(space.position);
+      const offset =
+        BOARD_PLACEHOLDER.player.offsets[index] ??
+        BOARD_PLACEHOLDER.player.fallbackOffset;
+      const x = space.position.x + offset.x * 1.35;
+      const y = toSvgY(space.position.z + offset.z * 1.35);
 
       return `
-        <span
-          class="board-visibility-player ${index === state.currentPlayerIndex ? "is-active" : ""}"
+        <g
+          class="svg-board-player ${index === state.currentPlayerIndex ? "is-active" : ""}"
           data-player-index="${index}"
-          style="left: ${point.x}%; top: ${point.y}%"
-        >${index + 1}</span>
+        >
+          <circle cx="${x}" cy="${y}" r="0.25"></circle>
+          <text x="${x}" y="${y + 0.09}">${index + 1}</text>
+        </g>
       `;
     })
     .join("");
 
-  layer.innerHTML = `
-    <svg class="board-visibility-links" viewBox="0 0 100 100" preserveAspectRatio="none">
-      ${links}
+  return `
+    <svg
+      class="svg-board"
+      data-testid="board-route-svg"
+      viewBox="${viewMinX} ${viewMinY} ${viewWidth} ${viewHeight}"
+      role="img"
+      aria-label="Treasure Trek route map with spaces, connections, and player pieces"
+    >
+      <rect class="svg-board-backdrop" x="${viewMinX}" y="${viewMinY}" width="${viewWidth}" height="${viewHeight}" rx="0.65"></rect>
+      <g class="svg-board-connections">${links}</g>
+      <g class="svg-board-spaces">${tiles}</g>
+      <g class="svg-board-players">${players}</g>
     </svg>
-    ${tiles}
-    ${players}
   `;
 }
 
