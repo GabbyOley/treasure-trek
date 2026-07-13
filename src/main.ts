@@ -71,6 +71,18 @@ function showBoardScreen(): void {
       gameState = applyMove(gameState, { type: "USE_TREASURE_CARD", cardId });
       boardScreen?.update(gameState);
     },
+    onBuyShopTreasure: () => {
+      gameState = applyMove(gameState, { type: "BUY_SHOP_TREASURE" });
+      boardScreen?.update(gameState);
+    },
+    onSellShopTreasure: (cardIndex) => {
+      gameState = applyMove(gameState, { type: "SELL_SHOP_TREASURE", cardIndex });
+      boardScreen?.update(gameState);
+    },
+    onLeaveShop: () => {
+      gameState = applyMove(gameState, { type: "LEAVE_SHOP" });
+      boardScreen?.update(gameState);
+    },
   });
 }
 

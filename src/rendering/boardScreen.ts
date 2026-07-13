@@ -8,7 +8,14 @@ import {
   type BoardSpace,
   type BoardSpaceType,
 } from "../game/board";
-import { canUseTreasureCard, type GameState, type Move } from "../game/state";
+import {
+  canBuyShopTreasure,
+  canSellShopTreasure,
+  canUseTreasureCard,
+  getActiveShop,
+  type GameState,
+  type Move,
+} from "../game/state";
 import { getTreasureCardName } from "../game/treasureCards";
 import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
@@ -65,6 +72,9 @@ export type BoardScreenHandlers = {
   onRoll: () => void;
   onChooseBranch: (spaceId: string) => void;
   onUseTreasureCard: (cardId: Extract<Move, { type: "USE_TREASURE_CARD" }>["cardId"]) => void;
+  onBuyShopTreasure: () => void;
+  onSellShopTreasure: (cardIndex: number) => void;
+  onLeaveShop: () => void;
 };
 
 export function renderBoardScreen(
@@ -89,6 +99,7 @@ export function renderBoardScreen(
           <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
           <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
           <div class="board-choice-list" data-board-choices></div>
+          <div class="shop-action-list" data-shop-actions></div>
           <button
             type="button"
             class="board-roll-button"
@@ -117,6 +128,7 @@ export function renderBoardScreen(
   const playerCoins = container.querySelector<HTMLDivElement>("[data-player-coins]");
   const playerHands = container.querySelector<HTMLDivElement>("[data-player-hands]");
   const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
+  const shopActions = container.querySelector<HTMLDivElement>("[data-shop-actions]");
   const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
 
   if (
@@ -125,6 +137,7 @@ export function renderBoardScreen(
     playerCoins === null ||
     playerHands === null ||
     choices === null ||
+    shopActions === null ||
     rollButton === null
   ) {
     throw new Error("Board controls were not created.");
@@ -139,8 +152,11 @@ export function renderBoardScreen(
     playerCoins.innerHTML = renderPlayerCoins(nextState);
     playerHands.innerHTML = renderPlayerHands(nextState);
     rollButton.disabled =
-      nextState.phase === "moving" || nextState.phase === "choosingBranch";
+      nextState.phase === "moving" ||
+      nextState.phase === "choosingBranch" ||
+      nextState.phase === "shopping";
     choices.innerHTML = renderBranchChoices(nextState);
+    shopActions.innerHTML = renderShopActions(nextState);
 
     choices
       .querySelectorAll<HTMLButtonElement>("[data-branch-choice]")
@@ -160,6 +176,23 @@ export function renderBoardScreen(
             >["cardId"],
           );
         });
+      });
+    shopActions
+      .querySelectorAll<HTMLButtonElement>("[data-shop-buy]")
+      .forEach((button) => {
+        button.addEventListener("click", handlers.onBuyShopTreasure);
+      });
+    shopActions
+      .querySelectorAll<HTMLButtonElement>("[data-shop-sell]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          handlers.onSellShopTreasure(Number(button.dataset.shopSell ?? "-1"));
+        });
+      });
+    shopActions
+      .querySelectorAll<HTMLButtonElement>("[data-shop-leave]")
+      .forEach((button) => {
+        button.addEventListener("click", handlers.onLeaveShop);
       });
   };
 
@@ -740,11 +773,78 @@ function getBoardStatusText(state: GameState): string {
     return `${movingName}, choose a route from ${movingSpaceName}. ${state.pendingMovement} ${stepLabel} from this roll.`;
   }
 
+  if (state.phase === "shopping") {
+    const shop = getActiveShop(state);
+
+    return `${activeName} is at ${shop?.name ?? "the shop"}. Buy, sell, or leave to end the turn.`;
+  }
+
   if (state.phase === "movementComplete") {
     return `${movingName} landed on ${movingSpaceName}.`;
   }
 
   return "Ready for the adventure.";
+}
+
+function renderShopActions(state: GameState): string {
+  const shop = getActiveShop(state);
+  const player = state.players[state.currentPlayerIndex];
+
+  if (state.phase !== "shopping" || shop === null || player === undefined) {
+    return "";
+  }
+
+  const canBuy = canBuyShopTreasure(state);
+  const buyReason =
+    player.coins < shop.purchasePrice
+      ? `Need ${shop.purchasePrice} coins`
+      : "Treasure hand is full";
+  const sellButtons =
+    player.treasureHand.length === 0
+      ? `<p class="shop-note">No Treasure cards to sell yet.</p>`
+      : player.treasureHand
+          .map((cardId, cardIndex) => {
+            const cardName = getTreasureCardName(cardId);
+            const disabled = canSellShopTreasure(state, cardIndex) ? "" : "disabled";
+
+            return `
+              <button
+                type="button"
+                class="shop-action-button secondary"
+                data-shop-sell="${cardIndex}"
+                aria-label="Sell ${cardName}"
+                ${disabled}
+              >
+                Sell ${cardName}
+              </button>
+            `;
+          })
+          .join("");
+
+  return `
+    <section class="shop-panel" aria-label="${shop.name} options">
+      <p class="shop-title">${shop.name}</p>
+      <p class="shop-detail">Price: ${shop.purchasePrice} coins. ${player.name} has ${player.coins} coins.</p>
+      <button
+        type="button"
+        class="shop-action-button primary"
+        data-shop-buy
+        aria-label="Buy a seeded Treasure card"
+        ${canBuy ? "" : "disabled"}
+      >
+        Buy Treasure${canBuy ? "" : ` (${buyReason})`}
+      </button>
+      ${sellButtons}
+      <button
+        type="button"
+        class="shop-action-button leave"
+        data-shop-leave
+        aria-label="Leave shop and end turn"
+      >
+        Leave Shop / End Turn
+      </button>
+    </section>
+  `;
 }
 
 function getMovingPlayerName(state: GameState): string {

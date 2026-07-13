@@ -11,14 +11,18 @@ import {
   MINI_QUEST_LARGE_COIN_REWARD,
   MINI_QUEST_MEDIUM_COIN_REWARD,
   MINI_QUEST_SMALL_COIN_REWARD,
+  SHOP_PURCHASE_PRICE,
   TITLE_SCREEN_DIE_SIDES,
   TRAP_COIN_LOSS,
   TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
 import { MINI_QUESTS } from "../miniQuests";
+import { SHOPS } from "../shops";
 import {
   applyMove,
+  canBuyShopTreasure,
+  canSellShopTreasure,
   canUseTreasureCard,
   createInitialGameState,
   type GameState,
@@ -112,6 +116,28 @@ function createBoardStateWithActiveHand(
   };
 }
 
+function createShopState(
+  coins: number,
+  treasureHand: TreasureCardId[] = [],
+  seed = 7,
+): GameState {
+  const preShopState = createBoardStateAt("cave-event", seed);
+  const fundedState = {
+    ...preShopState,
+    players: preShopState.players.map((player, index) =>
+      index === preShopState.currentPlayerIndex
+        ? {
+            ...player,
+            coins,
+            treasureHand,
+          }
+        : player,
+    ),
+  };
+
+  return applyMove(fundedState, { type: "ROLL_DIE" });
+}
+
 describe("game state", () => {
   it("creates the initial state", () => {
     expect(createInitialGameState()).toEqual({
@@ -147,6 +173,7 @@ describe("game state", () => {
       lastTurnSummary: null,
       lastLandingEffect: null,
       pendingLandingEffect: null,
+      activeShopId: null,
     });
   });
 
@@ -213,6 +240,16 @@ describe("game state", () => {
       "monkey-business",
       "buried-treasure",
       "hidden-cave",
+    ]);
+  });
+
+  it("shop catalog exists and includes the v1 shop price", () => {
+    expect(SHOPS).toEqual([
+      {
+        id: "trail-shop",
+        name: "Trail Shop",
+        purchasePrice: SHOP_PURCHASE_PRICE,
+      },
     ]);
   });
 
@@ -621,10 +658,10 @@ describe("game state", () => {
   });
 
   it("Fishing Spot outcomes are correct", () => {
-    const oddRollState = applyMove(createBoardStateAt("cave-event", 7), {
+    const oddRollState = applyMove(createBoardStateAt("lookout-blank", 7), {
       type: "ROLL_DIE",
     });
-    const evenRollState = applyMove(createBoardStateAt("cave-event", 19), {
+    const evenRollState = applyMove(createBoardStateAt("lookout-blank", 19), {
       type: "ROLL_DIE",
     });
 
@@ -770,6 +807,119 @@ describe("game state", () => {
     });
     expect(nextState.currentPlayerIndex).toBe(1);
     expect(nextState.players[0]?.positionId).toBe("camp-blank");
+  });
+
+  it("landing on a shop enters shop phase", () => {
+    const shopState = createShopState(0);
+
+    expect(shopState.phase).toBe("shopping");
+    expect(shopState.activeShopId).toBe("trail-shop");
+    expect(shopState.currentPlayerIndex).toBe(0);
+    expect(shopState.lastLandingEffect).toMatchObject({
+      shopId: "trail-shop",
+      coinDelta: 0,
+    });
+  });
+
+  it("turn does not advance until leaving shop", () => {
+    const shopState = createShopState(0);
+    const stillShopping = applyMove(shopState, { type: "BUY_SHOP_TREASURE" });
+    const nextTurn = applyMove(shopState, { type: "LEAVE_SHOP" });
+
+    expect(stillShopping.currentPlayerIndex).toBe(0);
+    expect(stillShopping.phase).toBe("shopping");
+    expect(nextTurn.currentPlayerIndex).toBe(1);
+    expect(nextTurn.phase).toBe("waitingToRoll");
+  });
+
+  it("buying requires enough coins", () => {
+    const shopState = createShopState(SHOP_PURCHASE_PRICE - 1);
+    const nextState = applyMove(shopState, { type: "BUY_SHOP_TREASURE" });
+
+    expect(canBuyShopTreasure(shopState)).toBe(false);
+    expect(nextState).toBe(shopState);
+  });
+
+  it("buying requires hand space", () => {
+    const shopState = createShopState(SHOP_PURCHASE_PRICE, [
+      "compass",
+      "shop",
+      "aid",
+    ]);
+    const nextState = applyMove(shopState, { type: "BUY_SHOP_TREASURE" });
+
+    expect(canBuyShopTreasure(shopState)).toBe(false);
+    expect(nextState).toBe(shopState);
+  });
+
+  it("buying subtracts 40 coins and draws a deterministic Treasure card", () => {
+    const buyOnce = (): GameState =>
+      applyMove(createShopState(SHOP_PURCHASE_PRICE), {
+        type: "BUY_SHOP_TREASURE",
+      });
+    const firstResult = buyOnce();
+    const secondResult = buyOnce();
+
+    expect(firstResult.players[0]?.coins).toBe(0);
+    expect(firstResult.players[0]?.treasureHand).toHaveLength(1);
+    expect(firstResult.players[0]?.treasureHand).toEqual(
+      secondResult.players[0]?.treasureHand,
+    );
+    expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.lastTurnSummary).toContain("bought");
+  });
+
+  it("selling removes the selected card and adds its resale value", () => {
+    const shopState = createShopState(0, ["compass", "whistle"]);
+    const nextState = applyMove(shopState, {
+      type: "SELL_SHOP_TREASURE",
+      cardIndex: 1,
+    });
+
+    expect(canSellShopTreasure(shopState, 1)).toBe(true);
+    expect(nextState.players[0]?.treasureHand).toEqual(["compass"]);
+    expect(nextState.players[0]?.coins).toBe(TREASURE_RESALE_VALUES.whistle);
+    expect(nextState.lastTurnSummary).toContain("sold Whistle");
+  });
+
+  it("a player can buy and sell multiple times before leaving", () => {
+    const boughtState = applyMove(createShopState(SHOP_PURCHASE_PRICE * 2, ["compass"]), {
+      type: "BUY_SHOP_TREASURE",
+    });
+    const soldState = applyMove(boughtState, {
+      type: "SELL_SHOP_TREASURE",
+      cardIndex: 0,
+    });
+    const leftState = applyMove(soldState, { type: "LEAVE_SHOP" });
+
+    expect(boughtState.phase).toBe("shopping");
+    expect(soldState.phase).toBe("shopping");
+    expect(soldState.players[0]?.treasureHand.length).toBe(1);
+    expect(soldState.players[0]?.coins).toBe(SHOP_PURCHASE_PRICE + TREASURE_RESALE_VALUES.compass);
+    expect(leftState.currentPlayerIndex).toBe(1);
+  });
+
+  it("invalid shop actions are safely ignored", () => {
+    const boardState = createBoardStateAt(START_SPACE_ID, 7);
+    const shopState = createShopState(SHOP_PURCHASE_PRICE);
+
+    expect(applyMove(boardState, { type: "BUY_SHOP_TREASURE" })).toBe(boardState);
+    expect(
+      applyMove(shopState, {
+        type: "SELL_SHOP_TREASURE",
+        cardIndex: 2,
+      }),
+    ).toBe(shopState);
+    expect(applyMove(boardState, { type: "LEAVE_SHOP" })).toBe(boardState);
+  });
+
+  it("leaving shop advances the turn", () => {
+    const shopState = createShopState(SHOP_PURCHASE_PRICE);
+    const nextState = applyMove(shopState, { type: "LEAVE_SHOP" });
+
+    expect(nextState.activeShopId).toBeNull();
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.players[nextState.currentPlayerIndex]?.name).toBe("Player 2");
   });
 
   it("Trap draws are deterministic", () => {
@@ -1164,5 +1314,33 @@ describe("game state", () => {
     expect(firstResult.players.map((player) => player.treasureHand)).toEqual(
       secondResult.players.map((player) => player.treasureHand),
     );
+  });
+
+  it("same seed plus same player choices produces deterministic shop results and turn order", () => {
+    const playShopRound = (): GameState => {
+      const shopState = createShopState(SHOP_PURCHASE_PRICE * 2, ["compass"], 7);
+      const boughtState = applyMove(shopState, { type: "BUY_SHOP_TREASURE" });
+      const soldState = applyMove(boughtState, {
+        type: "SELL_SHOP_TREASURE",
+        cardIndex: 0,
+      });
+
+      return applyMove(soldState, { type: "LEAVE_SHOP" });
+    };
+    const firstResult = playShopRound();
+    const secondResult = playShopRound();
+
+    expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
+    expect(firstResult.players.map((player) => player.coins)).toEqual(
+      secondResult.players.map((player) => player.coins),
+    );
+    expect(firstResult.players.map((player) => player.treasureHand)).toEqual(
+      secondResult.players.map((player) => player.treasureHand),
+    );
+    expect(firstResult.lastTurnSummary).toBe(secondResult.lastTurnSummary);
   });
 });

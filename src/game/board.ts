@@ -1,5 +1,6 @@
 import { BOARD_POSITION_HINTS } from "../utils/constants";
 import type { MiniQuestId } from "./miniQuests";
+import type { ShopId } from "./shops";
 
 export type BoardSpaceType =
   | "blank"
@@ -27,6 +28,7 @@ export type BoardSpace = {
   nextSpaceIds: string[];
   position: BoardPositionHint;
   miniQuestId?: MiniQuestId;
+  shopId?: ShopId;
 };
 
 export const START_SPACE_ID = "start";
@@ -178,7 +180,7 @@ export const BOARD_SPACES: readonly BoardSpace[] = [
     risk: "quest",
     nextSpaceIds: ["lookout-blank"],
     position: BOARD_POSITION_HINTS.rejoinBridge,
-    miniQuestId: "fishing-spot",
+    shopId: "trail-shop",
   },
   {
     id: "lookout-blank",
@@ -192,12 +194,13 @@ export const BOARD_SPACES: readonly BoardSpace[] = [
   },
   {
     id: "lookout-coin",
-    name: "Old Marker",
-    type: "coin",
+    name: "Fishing Spot",
+    type: "action",
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["lookout-event"],
     position: BOARD_POSITION_HINTS.lookoutCoin,
+    miniQuestId: "fishing-spot",
   },
   {
     id: "lookout-event",

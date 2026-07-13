@@ -23,7 +23,12 @@ import {
 import { getBoardSpace, START_SPACE_ID, type BoardSpaceType } from "./board";
 import { getMiniQuest, type MiniQuestId } from "./miniQuests";
 import { rollSeededDie } from "./rng";
-import { drawTreasureCard, type TreasureCardId } from "./treasureCards";
+import { getShop, type Shop, type ShopId } from "./shops";
+import {
+  drawTreasureCard,
+  getTreasureCard,
+  type TreasureCardId,
+} from "./treasureCards";
 import {
   drawEventCard,
   drawTrapCard,
@@ -36,6 +41,7 @@ export type GamePhase =
   | "waitingToRoll"
   | "moving"
   | "choosingBranch"
+  | "shopping"
   | "movementComplete";
 
 export type RollSource = "normal" | "compass";
@@ -63,6 +69,7 @@ export type LandingEffect = {
   trapCardId: TrapCardId | null;
   eventCardId: EventCardId | null;
   miniQuestId: MiniQuestId | null;
+  shopId: ShopId | null;
   miniQuestRoll: number | null;
   effectRoll: number | null;
   nextSeed: number | null;
@@ -84,6 +91,7 @@ export type GameState = {
   lastTurnSummary: string | null;
   lastLandingEffect: LandingEffect | null;
   pendingLandingEffect: LandingEffect | null;
+  activeShopId: ShopId | null;
 };
 
 export type Move =
@@ -103,6 +111,16 @@ export type Move =
   | {
       type: "CHOOSE_BRANCH";
       spaceId: string;
+    }
+  | {
+      type: "BUY_SHOP_TREASURE";
+    }
+  | {
+      type: "SELL_SHOP_TREASURE";
+      cardIndex: number;
+    }
+  | {
+      type: "LEAVE_SHOP";
     };
 
 export function createInitialGameState(): GameState {
@@ -124,6 +142,7 @@ export function createInitialGameState(): GameState {
     lastTurnSummary: null,
     lastLandingEffect: null,
     pendingLandingEffect: null,
+    activeShopId: null,
   };
 }
 
@@ -146,6 +165,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastTurnSummary: null,
         lastLandingEffect: null,
         pendingLandingEffect: null,
+        activeShopId: null,
       };
 
     case "EXIT_TO_TITLE":
@@ -160,6 +180,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastRollSource: null,
         lastLandingEffect: null,
         pendingLandingEffect: null,
+        activeShopId: null,
       };
 
     case "ROLL_DIE": {
@@ -180,6 +201,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastTurnSummary: null,
         lastLandingEffect: null,
         pendingLandingEffect: null,
+        activeShopId: null,
       };
 
       if (state.phase === "title") {
@@ -221,6 +243,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastTurnSummary: `${activePlayer?.name ?? "Player"} used Compass and rolled ${roll.value}.`,
         lastLandingEffect: null,
         pendingLandingEffect: null,
+        activeShopId: null,
       });
     }
 
@@ -244,7 +267,48 @@ export function applyMove(state: GameState, move: Move): GameState {
         availableBranchSpaceIds: [],
         movementPath: [move.spaceId],
       });
+
+    case "BUY_SHOP_TREASURE":
+      return buyShopTreasure(state);
+
+    case "SELL_SHOP_TREASURE":
+      return sellShopTreasure(state, move.cardIndex);
+
+    case "LEAVE_SHOP":
+      return leaveShop(state);
   }
+}
+
+export function getActiveShop(state: GameState): Shop | null {
+  return state.activeShopId === null ? null : getShop(state.activeShopId);
+}
+
+export function canBuyShopTreasure(state: GameState): boolean {
+  const shop = getActiveShop(state);
+  const player = state.players[state.currentPlayerIndex];
+
+  return (
+    state.phase === "shopping" &&
+    shop !== null &&
+    player !== undefined &&
+    player.coins >= shop.purchasePrice &&
+    player.treasureHand.length < MAX_TREASURE_HAND_SIZE
+  );
+}
+
+export function canSellShopTreasure(
+  state: GameState,
+  cardIndex: number,
+): boolean {
+  const player = state.players[state.currentPlayerIndex];
+
+  return (
+    state.phase === "shopping" &&
+    state.activeShopId !== null &&
+    player !== undefined &&
+    cardIndex >= 0 &&
+    cardIndex < player.treasureHand.length
+  );
 }
 
 export function canUseTreasureCard(
@@ -383,6 +447,7 @@ function completeTurn(
     lastTurnSummary: summary,
     lastLandingEffect: landingEffect,
     pendingLandingEffect: null,
+    activeShopId: null,
   };
 }
 
@@ -444,6 +509,20 @@ function applyLandingEffect(
     lastLandingEffect: landingEffect,
   };
 
+  if (landingEffect.shopId !== null) {
+    return {
+      ...effectState,
+      phase: "shopping",
+      pendingMovement: 0,
+      availableBranchSpaceIds: [],
+      movementPurpose: "turn",
+      movingPlayerIndex: playerIndex,
+      currentPlayerIndex: playerIndex,
+      pendingLandingEffect: null,
+      activeShopId: landingEffect.shopId,
+    };
+  }
+
   if (landingEffect.trapCardId === "move-back-2") {
     return completeTurn(
       movePlayerBackward(effectState, playerIndex, CARD_FIXED_MOVE_STEPS),
@@ -498,6 +577,7 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
     trapCardId: null,
     eventCardId: null,
     miniQuestId: null,
+    shopId: null,
     miniQuestRoll: null,
     effectRoll: null,
     nextSeed: null,
@@ -566,6 +646,25 @@ function removeTreasureCardFromPlayer(
     return {
       ...player,
       treasureHand: player.treasureHand.filter((_, handIndex) => handIndex !== cardIndex),
+    };
+  });
+}
+
+function removeTreasureCardAtIndex(
+  players: readonly PlayerState[],
+  playerIndex: number,
+  cardIndex: number,
+): PlayerState[] {
+  return players.map((player, index) => {
+    if (index !== playerIndex) {
+      return player;
+    }
+
+    return {
+      ...player,
+      treasureHand: player.treasureHand.filter(
+        (_, handIndex) => handIndex !== cardIndex,
+      ),
     };
   });
 }
@@ -651,6 +750,17 @@ function resolveActionLanding(
   baseEffect: Omit<LandingEffect, "message" | "coinDelta">,
 ): LandingEffect {
   const space = getBoardSpace(baseEffect.spaceId);
+
+  if (space?.shopId !== undefined) {
+    const shop = getShop(space.shopId);
+
+    return {
+      ...baseEffect,
+      message: `${shop.name}: buy a Treasure card, sell a card, or leave the shop.`,
+      coinDelta: 0,
+      shopId: shop.id,
+    };
+  }
 
   if (space?.miniQuestId === undefined) {
     return {
@@ -786,6 +896,74 @@ function resolveActionLanding(
     treasureHandFull: treasureDraw.handFull,
     nextSeed: treasureDraw.nextSeed,
   };
+}
+
+function buyShopTreasure(state: GameState): GameState {
+  if (!canBuyShopTreasure(state)) {
+    return state;
+  }
+
+  const shop = getActiveShop(state);
+  const playerIndex = state.currentPlayerIndex;
+  const draw = drawTreasureCard(state.seed);
+
+  if (shop === null) {
+    return state;
+  }
+
+  return {
+    ...state,
+    seed: draw.nextSeed,
+    players: addTreasureCardsToPlayer(
+      updatePlayerCoins(state.players, playerIndex, -shop.purchasePrice),
+      playerIndex,
+      [draw.card.id],
+    ),
+    lastTurnSummary: `${shop.name}: bought ${draw.card.name} for ${shop.purchasePrice} coins.`,
+  };
+}
+
+function sellShopTreasure(state: GameState, cardIndex: number): GameState {
+  if (!canSellShopTreasure(state, cardIndex)) {
+    return state;
+  }
+
+  const shop = getActiveShop(state);
+  const playerIndex = state.currentPlayerIndex;
+  const cardId = state.players[playerIndex]?.treasureHand[cardIndex];
+
+  if (shop === null || cardId === undefined) {
+    return state;
+  }
+
+  const card = getTreasureCard(cardId);
+
+  return {
+    ...state,
+    players: updatePlayerCoins(
+      removeTreasureCardAtIndex(state.players, playerIndex, cardIndex),
+      playerIndex,
+      card.resaleValue,
+    ),
+    lastTurnSummary: `${shop.name}: sold ${card.name} for ${card.resaleValue} coins.`,
+  };
+}
+
+function leaveShop(state: GameState): GameState {
+  const shop = getActiveShop(state);
+
+  if (state.phase !== "shopping" || shop === null) {
+    return state;
+  }
+
+  return completeTurn(
+    {
+      ...state,
+      activeShopId: null,
+    },
+    state.lastLandingEffect,
+    `${shop.name}: left the shop.`,
+  );
 }
 
 function drawTreasureCardsForPlayer(
