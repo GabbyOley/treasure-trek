@@ -106,6 +106,14 @@ test("board opens, renders, and rolls", async ({ page }) => {
     /landed|choose a route|moving|Waiting to roll/,
   );
 
+  await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
+  await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
+  await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("66");
+  await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("2");
+  await expect(page.getByTestId("board-debug")).toContainText("Route anchors on screen");
+
   expect(runtimeErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
 });

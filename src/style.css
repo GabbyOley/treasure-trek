@@ -277,6 +277,21 @@ h1 {
   outline-offset: 3px;
 }
 
+.board-debug-toggle {
+  min-height: 48px;
+  border: 1px solid rgba(224, 184, 92, 0.28);
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  color: var(--color-mist);
+  background: rgba(8, 22, 36, 0.58);
+  cursor: pointer;
+}
+
+.board-debug-toggle:focus-visible {
+  outline: 3px solid var(--color-mist);
+  outline-offset: 3px;
+}
+
 .board-kicker {
   font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
   font-size: 1.05rem;
@@ -569,6 +584,68 @@ h1 {
   pointer-events: none;
 }
 
+.board-debug-panel {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 2;
+  width: min(24rem, calc(100% - 32px));
+  max-height: min(34rem, calc(100% - 32px));
+  overflow: auto;
+  padding: 0.9rem;
+  border: 1px solid rgba(224, 184, 92, 0.45);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(11, 34, 57, 0.94), rgba(8, 22, 36, 0.94)),
+    rgba(8, 22, 36, 0.88);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+  color: var(--color-mist);
+}
+
+.board-debug-panel[hidden] {
+  display: none;
+}
+
+.board-debug-title {
+  font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+.board-debug-panel p + p {
+  margin-top: 0.25rem;
+  color: rgba(255, 247, 232, 0.78);
+  font-size: 0.9rem;
+}
+
+.board-debug-panel dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+}
+
+.board-debug-panel div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.75fr) 1fr;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.board-debug-panel dt {
+  color: var(--color-amber);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.board-debug-panel dd {
+  margin: 0;
+  color: var(--color-mist);
+  font-variant-numeric: tabular-nums;
+}
+
 .region-chip {
   display: flex;
   align-items: center;
@@ -640,6 +717,12 @@ h1 {
     font-size: 0.9rem;
   }
 
+  .board-debug-toggle {
+    min-height: 44px;
+    padding: 0.55rem 0.78rem;
+    font-size: 0.88rem;
+  }
+
   .board-status-panel {
     top: 10px;
     right: 10px;
@@ -671,6 +754,20 @@ h1 {
     border-radius: 18px;
     background: rgba(8, 22, 36, 0.52);
     backdrop-filter: blur(8px);
+  }
+
+  .board-debug-panel {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    width: auto;
+    max-height: 48svh;
+    padding: 0.75rem;
+  }
+
+  .board-debug-panel div {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
   }
 
   .region-chip {
