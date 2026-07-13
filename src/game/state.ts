@@ -4,10 +4,12 @@ import {
   COIN_SPACE_REWARD,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
+  MAX_TREASURE_HAND_SIZE,
   TITLE_SCREEN_DIE_SIDES,
 } from "../utils/constants";
 import { getBoardSpace, START_SPACE_ID, type BoardSpaceType } from "./board";
 import { rollSeededDie } from "./rng";
+import { drawTreasureCard, type TreasureCardId } from "./treasureCards";
 
 export type GamePhase =
   | "title"
@@ -21,6 +23,7 @@ export type PlayerState = {
   name: string;
   positionId: string;
   coins: number;
+  treasureHand: TreasureCardId[];
 };
 
 export type LandingEffect = {
@@ -29,6 +32,9 @@ export type LandingEffect = {
   spaceType: BoardSpaceType;
   message: string;
   coinDelta: number;
+  treasureCardId: TreasureCardId | null;
+  treasureHandFull: boolean;
+  nextSeed: number | null;
 };
 
 export type GameState = {
@@ -209,6 +215,7 @@ function createInitialPlayers(playerCount: number): PlayerState[] {
     name: `Player ${index + 1}`,
     positionId: START_SPACE_ID,
     coins: INITIAL_PLAYER_COINS,
+    treasureHand: [],
   }));
 }
 
@@ -236,13 +243,22 @@ function finishTurn(state: GameState): GameState {
   const landedSpace = getBoardSpace(movingPlayer?.positionId ?? START_SPACE_ID);
   const landedName = landedSpace?.name ?? "the board";
   const landingEffect = resolveLandingEffect(state, movingPlayerIndex);
-  const resolvedPlayers =
+  const playersAfterCoins =
     landingEffect.coinDelta === 0
       ? state.players
       : updatePlayerCoins(state.players, movingPlayerIndex, landingEffect.coinDelta);
+  const resolvedPlayers =
+    landingEffect.treasureCardId === null || landingEffect.treasureHandFull
+      ? playersAfterCoins
+      : addTreasureCardToPlayer(
+          playersAfterCoins,
+          movingPlayerIndex,
+          landingEffect.treasureCardId,
+        );
 
   return {
     ...state,
+    seed: landingEffect.nextSeed ?? state.seed,
     players: resolvedPlayers,
     phase: "waitingToRoll",
     pendingMovement: 0,
@@ -280,6 +296,9 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
     playerIndex,
     spaceId,
     spaceType,
+    treasureCardId: null,
+    treasureHandFull: false,
+    nextSeed: null,
   };
 
   switch (spaceType) {
@@ -290,11 +309,7 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
         coinDelta: COIN_SPACE_REWARD,
       };
     case "treasure":
-      return {
-        ...baseEffect,
-        message: "Treasure space: card draw coming soon.",
-        coinDelta: 0,
-      };
+      return resolveTreasureLanding(state, playerIndex, baseEffect);
     case "trap":
       return {
         ...baseEffect,
@@ -320,4 +335,50 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
         coinDelta: 0,
       };
   }
+}
+
+function addTreasureCardToPlayer(
+  players: readonly PlayerState[],
+  playerIndex: number,
+  treasureCardId: TreasureCardId,
+): PlayerState[] {
+  return players.map((player, index) => {
+    if (index !== playerIndex) {
+      return player;
+    }
+
+    return {
+      ...player,
+      treasureHand: [...player.treasureHand, treasureCardId],
+    };
+  });
+}
+
+function resolveTreasureLanding(
+  state: GameState,
+  playerIndex: number,
+  baseEffect: Omit<LandingEffect, "message" | "coinDelta">,
+): LandingEffect {
+  const player = state.players[playerIndex];
+  const draw = drawTreasureCard(state.seed);
+
+  if ((player?.treasureHand.length ?? 0) >= MAX_TREASURE_HAND_SIZE) {
+    return {
+      ...baseEffect,
+      message: `Treasure space: drew ${draw.card.name}, but the hand is full.`,
+      coinDelta: 0,
+      treasureCardId: draw.card.id,
+      treasureHandFull: true,
+      nextSeed: draw.nextSeed,
+    };
+  }
+
+  return {
+    ...baseEffect,
+    message: `Treasure space: drew ${draw.card.name}.`,
+    coinDelta: 0,
+    treasureCardId: draw.card.id,
+    treasureHandFull: false,
+    nextSeed: draw.nextSeed,
+  };
 }
