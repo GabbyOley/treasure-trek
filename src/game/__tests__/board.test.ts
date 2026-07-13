@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { BOARD_SPACES, START_SPACE_ID, type BoardSpaceType } from "../board";
 import { MINI_QUESTS } from "../miniQuests";
+import { SHOPS } from "../shops";
 
 const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "blank",
@@ -77,5 +78,16 @@ describe("board data", () => {
     assignedMiniQuestIds.forEach((miniQuestId) => {
       expect(miniQuestIds.has(miniQuestId)).toBe(true);
     });
+  });
+
+  it("board shop references point to valid shop IDs", () => {
+    const shopIds = new Set(SHOPS.map((shop) => shop.id));
+    const assignedShopIds = BOARD_SPACES.flatMap((space) =>
+      space.shopId === undefined ? [] : [space.shopId],
+    );
+    const invalidShopIds = assignedShopIds.filter((shopId) => !shopIds.has(shopId));
+
+    expect(assignedShopIds.length).toBeGreaterThan(0);
+    expect(invalidShopIds).toEqual([]);
   });
 });

@@ -50,6 +50,8 @@ export const MINI_QUEST_LARGE_COIN_REWARD = 40;
 
 export const MINI_QUEST_COIN_LOSS = 10;
 
+export const SHOP_PURCHASE_PRICE = 40;
+
 export const GOLD_MINE_MEDIUM_REWARD_MIN_ROLL = 4;
 
 export const GOLD_MINE_LARGE_REWARD_ROLL = 6;

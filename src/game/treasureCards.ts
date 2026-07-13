@@ -72,3 +72,7 @@ export function drawTreasureCard(seed: number): TreasureCardDraw {
 export function getTreasureCardName(cardId: TreasureCardId): string {
   return TREASURE_CARDS.find((card) => card.id === cardId)?.name ?? cardId;
 }
+
+export function getTreasureCard(cardId: TreasureCardId): TreasureCard {
+  return TREASURE_CARDS.find((card) => card.id === cardId) ?? TREASURE_CARDS[0];
+}
