@@ -25,6 +25,8 @@ import {
   PALETTE,
 } from "../utils/constants";
 
+const HTML_BOARD_ASPECT_RATIO = 9 / 16;
+
 type SpaceStyle = {
   color: number;
   marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "finish";
@@ -917,10 +919,10 @@ function renderHtmlBoard(state: GameState): string {
       const end = getHtmlBoardPoint(nextSpaceId);
       const deltaX = end.x - start.x;
       const deltaY = end.y - start.y;
-      const width = Math.hypot(deltaX, deltaY);
-      const angle = Math.atan2(deltaY, deltaX);
+      const width = Math.hypot(deltaX, deltaY * HTML_BOARD_ASPECT_RATIO);
+      const angle = Math.atan2(deltaY * HTML_BOARD_ASPECT_RATIO, deltaX);
 
-      if (!shouldShowHtmlTrackSegment(width, deltaX, deltaY)) {
+      if (width === 0) {
         return "";
       }
 
@@ -998,10 +1000,6 @@ function renderHtmlBoard(state: GameState): string {
   `;
 }
 
-function shouldShowHtmlTrackSegment(width: number, deltaX: number, deltaY: number): boolean {
-  return width <= 14 && Math.abs(deltaY) <= 2 && Math.abs(deltaX) > 0;
-}
-
 function getHtmlBoardPoint(spaceId: string): { x: number; y: number } {
   const layoutKey = spaceId.replace(/-([a-z0-9])/g, (_, character: string) =>
     character.toUpperCase(),
@@ -1014,12 +1012,6 @@ function getHtmlBoardLabel(spaceId: string): string {
   switch (spaceId) {
     case START_SPACE_ID:
       return "Start";
-    case "field-entry":
-      return "Field";
-    case "cave-mouth":
-      return "Cave";
-    case "jungle-fork":
-      return "Jungle";
     case "final-choice":
       return "Choice";
     case "meadow-1":

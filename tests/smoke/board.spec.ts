@@ -60,6 +60,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
       height: box.height,
     })),
   );
+  const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth);
   const viewport = page.viewportSize();
 
   expect(boardBox?.width ?? 0).toBeGreaterThan(300);
@@ -86,11 +87,13 @@ test("board opens, renders, and rolls", async ({ page }) => {
     }
   }
 
-  if (viewport !== null && viewport.width > 480 && boardBox !== null && statusBox !== null) {
-    const statusIsBesideBoard = boardBox.x + boardBox.width <= statusBox.x;
-    const statusIsBelowBoard = boardBox.y + boardBox.height <= statusBox.y;
+  if (viewport !== null) {
+    expect(pageWidth).toBeLessThanOrEqual(viewport.width + 1);
+  }
 
-    expect(statusIsBesideBoard || statusIsBelowBoard).toBe(true);
+  if (viewport !== null && viewport.width > 480 && boardBox !== null && statusBox !== null) {
+    expect(boardBox.x + boardBox.width).toBeLessThanOrEqual(statusBox.x);
+    expect(statusBox.y).toBeLessThanOrEqual(boardBox.y + 8);
   }
 
   playerTokenBoxes.forEach((box) => {
