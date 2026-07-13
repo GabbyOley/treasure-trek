@@ -694,10 +694,10 @@ describe("game state", () => {
   });
 
   it("Monkey Business outcomes are correct", () => {
-    const oddRollState = applyMove(createBoardStateAt("rejoin-bridge", 7), {
+    const oddRollState = applyMove(createBoardStateAt("cliff-trap", 7), {
       type: "ROLL_DIE",
     });
-    const evenRollState = applyMove(createBoardStateAt("rejoin-bridge", 19), {
+    const evenRollState = applyMove(createBoardStateAt("cliff-trap", 19), {
       type: "ROLL_DIE",
     });
 
