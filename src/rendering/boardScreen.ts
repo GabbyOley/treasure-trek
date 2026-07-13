@@ -987,7 +987,7 @@ function renderHtmlBoard(state: GameState): string {
 
       const point = project(space.position);
       const offset = index === 0 ? -8 : 8;
-      const yOffset = index === 0 ? 10 : -10;
+      const yOffset = 12;
 
       return `
         <div
@@ -1041,6 +1041,25 @@ function renderHtmlBoardTrack(
 }
 
 function renderHtmlBoardConnection(start: HtmlBoardPoint, end: HtmlBoardPoint): string {
+  const deltaX = Math.abs(end.x - start.x);
+  const deltaY = Math.abs(end.y - start.y);
+
+  if (deltaX > 4 && deltaY > 4) {
+    const corner: HtmlBoardPoint = {
+      x: end.x,
+      y: start.y,
+    };
+
+    return [
+      renderHtmlBoardConnectionSegment(start, corner),
+      renderHtmlBoardConnectionSegment(corner, end),
+    ].join("");
+  }
+
+  return renderHtmlBoardConnectionSegment(start, end);
+}
+
+function renderHtmlBoardConnectionSegment(start: HtmlBoardPoint, end: HtmlBoardPoint): string {
   const width = Math.hypot(end.x - start.x, end.y - start.y);
   const angle = Math.atan2(end.y - start.y, end.x - start.x);
 
