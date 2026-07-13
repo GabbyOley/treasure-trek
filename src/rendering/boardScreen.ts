@@ -88,7 +88,7 @@ export function renderBoardScreen(
   handlers: BoardScreenHandlers,
 ): BoardScreenView {
   container.innerHTML = `
-    <main class="board-screen">
+    <main class="board-screen" data-testid="board-screen">
       <div class="board-toolbar">
         <button type="button" class="back-button" data-action="back-title" aria-label="Return to title screen">
           Back
@@ -96,24 +96,29 @@ export function renderBoardScreen(
         <p class="board-kicker">Treasure Trek</p>
       </div>
       <div class="board-stage">
-        <div class="board-canvas-wrap" aria-label="3D Treasure Trek board placeholder"></div>
+        <div
+          class="board-canvas-wrap"
+          data-testid="board-canvas"
+          aria-label="3D Treasure Trek board placeholder"
+        ></div>
         <section class="board-status-panel" aria-live="polite">
           <p class="board-status-label">Board Turn</p>
-          <p class="board-status-text" data-board-status></p>
-          <p class="board-roll-text" data-board-roll></p>
+          <p class="board-status-text" data-board-status data-testid="board-status"></p>
+          <p class="board-roll-text" data-board-roll data-testid="board-roll-text"></p>
+          <button
+            type="button"
+            class="board-roll-button"
+            data-action="board-roll"
+            data-testid="board-roll"
+            aria-label="Roll the board die"
+          >
+            Roll
+          </button>
           <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
           <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
           <div class="board-choice-list" data-board-choices></div>
           <div class="shop-action-list" data-shop-actions></div>
           <div class="game-over-panel-wrap" data-game-over></div>
-          <button
-            type="button"
-            class="board-roll-button"
-            data-action="board-roll"
-            aria-label="Roll the board die"
-          >
-            Roll
-          </button>
         </section>
         <aside class="board-region-panel" aria-label="Board regions">
           ${renderRegionSummaries()}

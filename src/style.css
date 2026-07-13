@@ -645,6 +645,8 @@ h1 {
     right: 10px;
     gap: 0.52rem;
     width: calc(100% - 20px);
+    max-height: 46svh;
+    overflow: auto;
     padding: 0.85rem;
     border-radius: 18px;
   }
@@ -655,12 +657,32 @@ h1 {
 
   .board-region-panel {
     left: 10px;
-    bottom: 10px;
+    right: 10px;
+    bottom: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 6px;
-    max-width: calc(100% - 20px);
+    max-width: none;
+    max-height: 84px;
+    overflow: hidden;
+    padding: 0.45rem;
+    border: 1px solid rgba(242, 225, 182, 0.16);
+    border-radius: 18px;
+    background: rgba(8, 22, 36, 0.52);
+    backdrop-filter: blur(8px);
   }
 
   .region-chip {
-    padding: 0.48rem 0.62rem;
+    min-height: 28px;
+    padding: 0.28rem 0.48rem;
+  }
+
+  .region-chip span {
+    font-size: 0.82rem;
+  }
+
+  .region-chip small {
+    display: none;
   }
 }
