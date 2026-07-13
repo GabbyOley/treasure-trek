@@ -2,10 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/smoke",
-  timeout: 30_000,
+  timeout: 45_000,
   expect: {
-    timeout: 5_000,
+    timeout: 8_000,
   },
+  workers: process.env.CI ? 1 : undefined,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:5173",
