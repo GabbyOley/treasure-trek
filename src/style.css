@@ -247,8 +247,10 @@ h1 {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   background:
+    radial-gradient(circle at 50% 36%, rgba(191, 231, 223, 0.16), transparent 38%),
     linear-gradient(180deg, rgba(43, 108, 126, 0.5), transparent 44%),
     linear-gradient(180deg, var(--color-deep-sea), var(--color-midnight));
+  overflow: hidden;
 }
 
 .board-toolbar {
@@ -309,14 +311,17 @@ h1 {
   right: 16px;
   display: grid;
   gap: 0.65rem;
-  width: min(21rem, calc(100% - 32px));
-  padding: 1rem;
+  width: min(19rem, calc(100% - 32px));
+  max-height: calc(100% - 120px);
+  overflow: auto;
+  padding: 0.9rem;
   border: 1px solid rgba(242, 225, 182, 0.24);
   border-radius: 22px;
   background:
-    linear-gradient(180deg, rgba(11, 34, 57, 0.82), rgba(8, 22, 36, 0.88)),
-    rgba(8, 22, 36, 0.72);
+    linear-gradient(180deg, rgba(11, 34, 57, 0.72), rgba(8, 22, 36, 0.8)),
+    rgba(8, 22, 36, 0.62);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
 }
 
 .board-status-label {
@@ -561,32 +566,58 @@ h1 {
 
 .board-region-panel {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
-  display: grid;
-  gap: 8px;
-  max-width: min(22rem, calc(100% - 32px));
+  left: 50%;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: min(58rem, calc(100% - 32px));
+  max-height: 5.8rem;
+  overflow: hidden;
+  padding: 0.55rem;
+  border: 1px solid rgba(242, 225, 182, 0.16);
+  border-radius: 18px;
+  background: rgba(8, 22, 36, 0.42);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%);
   pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.region-panel-title {
+  flex: 0 0 100%;
+  color: rgba(255, 247, 232, 0.76);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16rem;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .region-chip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.55rem 0.75rem;
+  gap: 0.45rem;
+  min-height: 30px;
+  padding: 0.32rem 0.55rem;
   border: 1px solid rgba(242, 225, 182, 0.22);
   border-radius: 999px;
-  background: rgba(8, 22, 36, 0.72);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  background: rgba(8, 22, 36, 0.58);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .region-chip span {
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--color-mist);
 }
 
 .region-chip small {
+  font-size: 0.68rem;
   color: rgba(255, 247, 232, 0.78);
 }
 
@@ -645,8 +676,21 @@ h1 {
     right: 10px;
     gap: 0.52rem;
     width: calc(100% - 20px);
-    padding: 0.85rem;
+    max-height: 44svh;
+    padding: 0.75rem;
     border-radius: 18px;
+  }
+
+  .board-roll-button,
+  .branch-choice-button,
+  .shop-action-button {
+    min-height: 44px;
+    padding-block: 0.58rem;
+  }
+
+  .player-hand-chip,
+  .player-coin-chip {
+    padding-block: 0.38rem;
   }
 
   .board-status-label {
@@ -654,13 +698,19 @@ h1 {
   }
 
   .board-region-panel {
-    left: 10px;
-    bottom: 10px;
+    bottom: 8px;
     gap: 6px;
-    max-width: calc(100% - 20px);
+    width: calc(100% - 20px);
+    max-height: 4.8rem;
+    padding: 0.45rem;
   }
 
   .region-chip {
-    padding: 0.48rem 0.62rem;
+    min-height: 28px;
+    padding: 0.28rem 0.48rem;
+  }
+
+  .region-chip small {
+    display: none;
   }
 }
