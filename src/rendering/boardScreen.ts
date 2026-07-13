@@ -18,7 +18,12 @@ import {
   type Move,
 } from "../game/state";
 import { getTreasureCardName } from "../game/treasureCards";
-import { BOARD_PLACEHOLDER, HTML_BOARD_LAYOUT, PALETTE } from "../utils/constants";
+import {
+  BOARD_PLACEHOLDER,
+  HTML_BOARD_CONNECTION_BENDS,
+  HTML_BOARD_LAYOUT,
+  PALETTE,
+} from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
@@ -915,20 +920,23 @@ function renderHtmlBoard(state: GameState): string {
 
       const start = getHtmlBoardPoint(space.id);
       const end = getHtmlBoardPoint(nextSpace.id);
-      const width = Math.hypot(end.x - start.x, end.y - start.y);
-      const angle = Math.atan2(end.y - start.y, end.x - start.x);
       const isBranch = space.nextSpaceIds.length > 1;
-      const isLong = width > 14;
+      const pathPoints = getHtmlConnectionPoints(space.id, nextSpace.id, start, end);
 
-      return [
-        `
+      return pathPoints.slice(0, -1).map((segmentStart, index) => {
+        const segmentEnd = pathPoints[index + 1];
+        const width = Math.hypot(segmentEnd.x - segmentStart.x, segmentEnd.y - segmentStart.y);
+        const angle = Math.atan2(segmentEnd.y - segmentStart.y, segmentEnd.x - segmentStart.x);
+        const isLong = width > 14;
+
+        return `
           <div
             class="html-board-connection ${isBranch ? "is-branch" : ""} ${isLong ? "is-long" : ""}"
             data-testid="board-connection"
-            style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
+            style="left: ${segmentStart.x}%; top: ${segmentStart.y}%; width: ${width}%; transform: rotate(${angle}rad);"
           ></div>
-        `,
-      ];
+        `;
+      });
     }),
   ).join("");
   const tiles = BOARD_SPACES.map((space) => {
@@ -1009,6 +1017,10 @@ function getHtmlBoardLabel(spaceId: string): string {
       return "Start";
     case "final-choice":
       return "Choice";
+    case "meadow-1":
+      return "Meadow";
+    case "pond-1":
+      return "Pond";
     case "river-1":
       return "River";
     case "shipwreck-1":
@@ -1018,6 +1030,18 @@ function getHtmlBoardLabel(spaceId: string): string {
     default:
       return "";
   }
+}
+
+function getHtmlConnectionPoints(
+  fromSpaceId: string,
+  toSpaceId: string,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { x: number; y: number }[] {
+  const bendKey = `${fromSpaceId}>${toSpaceId}` as keyof typeof HTML_BOARD_CONNECTION_BENDS;
+  const bends = HTML_BOARD_CONNECTION_BENDS[bendKey] ?? [];
+
+  return [start, ...bends, end];
 }
 
 function getProjectedRouteBounds(

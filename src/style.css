@@ -347,7 +347,7 @@ h1 {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 500px;
+  min-height: 560px;
   border: 3px solid rgba(255, 247, 232, 0.35);
   border-radius: 22px;
   background:
@@ -376,23 +376,25 @@ h1 {
 
 .html-board-connection {
   position: absolute;
-  height: 2px;
+  height: 5px;
   border-radius: 999px;
-  background: rgba(8, 22, 36, 0.24);
-  box-shadow: none;
-  opacity: 0.38;
+  background: rgba(80, 67, 43, 0.68);
+  box-shadow:
+    0 0 0 2px rgba(255, 247, 232, 0.22),
+    0 2px 6px rgba(8, 22, 36, 0.16);
+  opacity: 0.84;
   transform-origin: left center;
   z-index: 1;
 }
 
 .html-board-connection.is-branch {
-  height: 3px;
-  background: rgba(43, 108, 126, 0.3);
-  opacity: 0.32;
+  height: 5px;
+  background: rgba(43, 108, 126, 0.74);
+  opacity: 0.78;
 }
 
 .html-board-connection.is-long {
-  opacity: 0.16;
+  opacity: 0.58;
 }
 
 .html-board-space {
@@ -448,22 +450,40 @@ h1 {
 
 .html-board-space-label {
   position: absolute;
+  z-index: 5;
   left: 50%;
   bottom: calc(100% + 2px);
   transform: translateX(-50%);
+  padding: 0.1rem 0.24rem;
+  border-radius: 999px;
+  background: rgba(8, 22, 36, 0.58);
   color: var(--color-mist);
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   font-weight: 900;
   line-height: 1;
   text-shadow:
-    0 2px 0 rgba(8, 22, 36, 0.95),
     0 0 8px rgba(8, 22, 36, 0.95);
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .html-board-space[data-space-id="final-choice"] .html-board-space-label {
   bottom: auto;
   top: calc(100% + 0.2rem);
+}
+
+.html-board-space[data-space-id="meadow-1"] .html-board-space-label {
+  left: calc(100% + 0.35rem);
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.html-board-space[data-space-id="pond-1"] .html-board-space-label {
+  left: calc(100% + 0.35rem);
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .html-board-space[data-space-id="river-1"] .html-board-space-label {
@@ -977,13 +997,13 @@ h1 {
   }
 
   .html-board-surface {
-    min-height: 300px;
+    min-height: 340px;
     border-width: 2px;
     border-radius: 18px;
   }
 
   .html-board-connection {
-    height: 2px;
+    height: 4px;
   }
 
   .html-board-space {
