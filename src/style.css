@@ -340,6 +340,11 @@ h1 {
   gap: 0.45rem;
 }
 
+.player-hand-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .player-coin-chip {
   display: flex;
   align-items: center;
@@ -359,6 +364,26 @@ h1 {
 
 .player-coin-chip strong {
   color: var(--color-gold);
+}
+
+.player-hand-chip {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid rgba(224, 184, 92, 0.18);
+  border-radius: 16px;
+  background: rgba(43, 108, 126, 0.28);
+  color: rgba(255, 247, 232, 0.84);
+}
+
+.player-hand-chip span {
+  font-size: 0.78rem;
+  color: var(--color-amber);
+}
+
+.player-hand-chip strong {
+  color: var(--color-mist);
+  font-weight: 700;
 }
 
 .board-choice-list {

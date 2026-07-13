@@ -10,6 +10,7 @@ import {
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
 import { applyMove, createInitialGameState, type GameState } from "../state";
+import { TREASURE_CARDS } from "../treasureCards";
 
 function collectRolls(state: GameState, rollCount: number): number[] {
   const rolls: number[] = [];
@@ -54,12 +55,14 @@ describe("game state", () => {
           name: "Player 1",
           positionId: START_SPACE_ID,
           coins: INITIAL_PLAYER_COINS,
+          treasureHand: [],
         },
         {
           id: "player-2",
           name: "Player 2",
           positionId: START_SPACE_ID,
           coins: INITIAL_PLAYER_COINS,
+          treasureHand: [],
         },
       ],
       pendingMovement: 0,
@@ -87,6 +90,24 @@ describe("game state", () => {
     expect(state.players.map((player) => player.coins)).toEqual([
       INITIAL_PLAYER_COINS,
       INITIAL_PLAYER_COINS,
+    ]);
+  });
+
+  it("players start with empty Treasure hands", () => {
+    const state = createInitialGameState();
+
+    expect(state.players.map((player) => player.treasureHand)).toEqual([[], []]);
+  });
+
+  it("Treasure card catalog includes the 7 confirmed cards and resale values", () => {
+    expect(TREASURE_CARDS).toEqual([
+      { id: "compass", name: "Compass", resaleValue: 10 },
+      { id: "shop", name: "Shop", resaleValue: 10 },
+      { id: "aid", name: "Aid", resaleValue: 20 },
+      { id: "time-machine", name: "Time Machine", resaleValue: 20 },
+      { id: "shovel", name: "Shovel", resaleValue: 20 },
+      { id: "crab", name: "Crab", resaleValue: 30 },
+      { id: "whistle", name: "Whistle", resaleValue: 50 },
     ]);
   });
 
@@ -346,7 +367,6 @@ describe("game state", () => {
   });
 
   it.each([
-    ["treasure", "cave-trap", "Treasure space: card draw coming soon."],
     ["trap", "camp-fork", "Trap space: trap effect coming soon."],
     ["event", "camp-blank", "Event space: event effect coming soon."],
     ["action", "camp-event", "Action space: landmark interaction coming soon."],
@@ -372,6 +392,80 @@ describe("game state", () => {
       expect(nextState.lastLandingEffect?.coinDelta).toBe(0);
     },
   );
+
+  it("landing on Treasure adds one card to only the active player's hand", () => {
+    const nextState = applyMove(createBoardStateAt("cave-trap", 7), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.players[0]?.treasureHand).toHaveLength(1);
+    expect(nextState.players[1]?.treasureHand).toEqual([]);
+    expect(nextState.lastLandingEffect).toMatchObject({
+      spaceType: "treasure",
+      coinDelta: 0,
+      treasureHandFull: false,
+    });
+    expect(nextState.lastLandingEffect?.message).toContain("Treasure space: drew");
+  });
+
+  it("Treasure draws are deterministic from the same seed and same move sequence", () => {
+    const drawOnce = (): GameState =>
+      applyMove(createBoardStateAt("cave-trap", 7), { type: "ROLL_DIE" });
+    const firstResult = drawOnce();
+    const secondResult = drawOnce();
+
+    expect(firstResult.players[0]?.treasureHand).toEqual(
+      secondResult.players[0]?.treasureHand,
+    );
+    expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.lastLandingEffect?.message).toBe(
+      secondResult.lastLandingEffect?.message,
+    );
+  });
+
+  it("Treasure hands cannot exceed 3 cards", () => {
+    const fullHandState = createBoardStateAt("cave-trap", 7);
+    const nextState = applyMove(
+      {
+        ...fullHandState,
+        players: fullHandState.players.map((player, index) =>
+          index === fullHandState.currentPlayerIndex
+            ? {
+                ...player,
+                treasureHand: ["compass", "shop", "aid"],
+              }
+            : player,
+        ),
+      },
+      { type: "ROLL_DIE" },
+    );
+
+    expect(nextState.players[0]?.treasureHand).toEqual(["compass", "shop", "aid"]);
+    expect(nextState.lastLandingEffect).toMatchObject({
+      spaceType: "treasure",
+      treasureHandFull: true,
+    });
+  });
+
+  it("landing on Treasure with a full hand produces a clear temporary full-hand result", () => {
+    const fullHandState = createBoardStateAt("cave-trap", 7);
+    const nextState = applyMove(
+      {
+        ...fullHandState,
+        players: fullHandState.players.map((player, index) =>
+          index === fullHandState.currentPlayerIndex
+            ? {
+                ...player,
+                treasureHand: ["compass", "shop", "aid"],
+              }
+            : player,
+        ),
+      },
+      { type: "ROLL_DIE" },
+    );
+
+    expect(nextState.lastLandingEffect?.message).toContain("hand is full");
+  });
 
   it("landing resolution happens before turn advancement", () => {
     const nextState = applyMove(createBoardStateAt(START_SPACE_ID, 7), {
@@ -421,6 +515,9 @@ describe("game state", () => {
     );
     expect(firstResult.players.map((player) => player.coins)).toEqual(
       secondResult.players.map((player) => player.coins),
+    );
+    expect(firstResult.players.map((player) => player.treasureHand)).toEqual(
+      secondResult.players.map((player) => player.treasureHand),
     );
   });
 });

@@ -9,6 +9,7 @@ import {
   type BoardSpaceType,
 } from "../game/board";
 import type { GameState } from "../game/state";
+import { getTreasureCardName } from "../game/treasureCards";
 import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
@@ -85,6 +86,7 @@ export function renderBoardScreen(
           <p class="board-status-text" data-board-status></p>
           <p class="board-roll-text" data-board-roll></p>
           <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
+          <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
           <div class="board-choice-list" data-board-choices></div>
           <button
             type="button"
@@ -112,6 +114,7 @@ export function renderBoardScreen(
   const status = container.querySelector<HTMLParagraphElement>("[data-board-status]");
   const roll = container.querySelector<HTMLParagraphElement>("[data-board-roll]");
   const playerCoins = container.querySelector<HTMLDivElement>("[data-player-coins]");
+  const playerHands = container.querySelector<HTMLDivElement>("[data-player-hands]");
   const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
   const rollButton = container.querySelector<HTMLButtonElement>('[data-action="board-roll"]');
 
@@ -119,6 +122,7 @@ export function renderBoardScreen(
     status === null ||
     roll === null ||
     playerCoins === null ||
+    playerHands === null ||
     choices === null ||
     rollButton === null
   ) {
@@ -132,6 +136,7 @@ export function renderBoardScreen(
         ? "No board roll yet."
         : `${getMovingPlayerName(nextState)} rolled ${nextState.lastRoll}.`;
     playerCoins.innerHTML = renderPlayerCoins(nextState);
+    playerHands.innerHTML = renderPlayerHands(nextState);
     rollButton.disabled =
       nextState.phase === "moving" || nextState.phase === "choosingBranch";
     choices.innerHTML = renderBranchChoices(nextState);
@@ -743,6 +748,24 @@ function renderPlayerCoins(state: GameState): string {
         </p>
       `,
     )
+    .join("");
+}
+
+function renderPlayerHands(state: GameState): string {
+  return state.players
+    .map((player) => {
+      const handText =
+        player.treasureHand.length === 0
+          ? "No Treasure cards"
+          : player.treasureHand.map(getTreasureCardName).join(", ");
+
+      return `
+        <p class="player-hand-chip">
+          <span>${player.name} hand</span>
+          <strong>${handText}</strong>
+        </p>
+      `;
+    })
     .join("");
 }
 
