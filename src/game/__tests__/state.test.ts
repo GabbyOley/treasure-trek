@@ -7,11 +7,16 @@ import {
   FIRST_PLAYER_INDEX,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
+  MINI_QUEST_COIN_LOSS,
+  MINI_QUEST_LARGE_COIN_REWARD,
+  MINI_QUEST_MEDIUM_COIN_REWARD,
+  MINI_QUEST_SMALL_COIN_REWARD,
   TITLE_SCREEN_DIE_SIDES,
   TRAP_COIN_LOSS,
   TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
+import { MINI_QUESTS } from "../miniQuests";
 import {
   applyMove,
   canUseTreasureCard,
@@ -198,6 +203,16 @@ describe("game state", () => {
       "move-forward-2",
       "roll-again",
       "draw-treasure",
+    ]);
+  });
+
+  it("mini-quest catalog includes the v1 quests", () => {
+    expect(MINI_QUESTS.map((miniQuest) => miniQuest.id)).toEqual([
+      "gold-mine",
+      "fishing-spot",
+      "monkey-business",
+      "buried-treasure",
+      "hidden-cave",
     ]);
   });
 
@@ -577,16 +592,184 @@ describe("game state", () => {
     });
   });
 
-  it("landing on Action produces a placeholder landing result without changing coins", () => {
-    const nextState = applyMove(createBoardStateAt("camp-event", 7), {
+  it("Gold Mine outcomes are correct", () => {
+    const lowRollState = applyMove(createBoardStateAt("field-entry", 7), {
+      type: "ROLL_DIE",
+    });
+    const middleRollState = applyMove(createBoardStateAt("field-entry", 8), {
+      type: "ROLL_DIE",
+    });
+    const highRollState = applyMove(createBoardStateAt("field-entry", 45), {
       type: "ROLL_DIE",
     });
 
-    expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
-    expect(nextState.lastLandingEffect?.message).toBe(
-      "Action space: landmark interaction coming soon.",
+    expect(lowRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "gold-mine",
+      miniQuestRoll: 1,
+      coinDelta: MINI_QUEST_SMALL_COIN_REWARD,
+    });
+    expect(middleRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "gold-mine",
+      miniQuestRoll: 4,
+      coinDelta: MINI_QUEST_MEDIUM_COIN_REWARD,
+    });
+    expect(highRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "gold-mine",
+      miniQuestRoll: 6,
+      coinDelta: MINI_QUEST_LARGE_COIN_REWARD,
+    });
+  });
+
+  it("Fishing Spot outcomes are correct", () => {
+    const oddRollState = applyMove(createBoardStateAt("cave-event", 7), {
+      type: "ROLL_DIE",
+    });
+    const evenRollState = applyMove(createBoardStateAt("cave-event", 19), {
+      type: "ROLL_DIE",
+    });
+
+    expect(oddRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "fishing-spot",
+      miniQuestRoll: 1,
+      coinDelta: 0,
+    });
+    expect(oddRollState.lastLandingEffect?.message).toContain("nothing happened");
+    expect(evenRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "fishing-spot",
+      miniQuestRoll: 2,
+      coinDelta: MINI_QUEST_MEDIUM_COIN_REWARD,
+    });
+  });
+
+  it("Monkey Business outcomes are correct", () => {
+    const oddRollState = applyMove(createBoardStateAt("rejoin-bridge", 7), {
+      type: "ROLL_DIE",
+    });
+    const evenRollState = applyMove(createBoardStateAt("rejoin-bridge", 19), {
+      type: "ROLL_DIE",
+    });
+
+    expect(oddRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "monkey-business",
+      miniQuestRoll: 1,
+      coinDelta: -MINI_QUEST_COIN_LOSS,
+    });
+    expect(oddRollState.players[0]?.coins).toBe(0);
+    expect(evenRollState.lastLandingEffect).toMatchObject({
+      miniQuestId: "monkey-business",
+      miniQuestRoll: 2,
+      treasureHandFull: false,
+    });
+    expect(evenRollState.players[0]?.treasureHand).toHaveLength(1);
+  });
+
+  it("Buried Treasure outcomes are correct and respects hand limit", () => {
+    const oneCardState = applyMove(createBoardStateAt("field-coin", 7), {
+      type: "ROLL_DIE",
+    });
+    const twoCardState = applyMove(createBoardStateAt("field-coin", 39), {
+      type: "ROLL_DIE",
+    });
+    const fullHandState = createBoardStateWithActiveHand(
+      ["compass", "shop", "aid"],
+      39,
+      "field-coin",
     );
-    expect(nextState.lastLandingEffect?.coinDelta).toBe(0);
+    const fullHandResult = applyMove(fullHandState, { type: "ROLL_DIE" });
+
+    expect(oneCardState.lastLandingEffect).toMatchObject({
+      miniQuestId: "buried-treasure",
+      miniQuestRoll: 1,
+      treasureHandFull: false,
+    });
+    expect(oneCardState.players[0]?.treasureHand).toHaveLength(1);
+    expect(twoCardState.lastLandingEffect).toMatchObject({
+      miniQuestId: "buried-treasure",
+      miniQuestRoll: 5,
+      treasureHandFull: false,
+    });
+    expect(twoCardState.players[0]?.treasureHand).toHaveLength(2);
+    expect(fullHandResult.lastLandingEffect).toMatchObject({
+      miniQuestId: "buried-treasure",
+      miniQuestRoll: 5,
+      treasureHandFull: true,
+    });
+    expect(fullHandResult.players[0]?.treasureHand).toEqual([
+      "compass",
+      "shop",
+      "aid",
+    ]);
+  });
+
+  it("Hidden Cave outcomes are correct", () => {
+    const trapState = applyMove(
+      createBoardStateWithPath(["start", "camp-coin", "camp-blank", "camp-event"], 23),
+      { type: "ROLL_DIE" },
+    );
+    const treasureState = applyMove(createBoardStateAt("camp-event", 8), {
+      type: "ROLL_DIE",
+    });
+
+    expect(trapState.lastLandingEffect).toMatchObject({
+      miniQuestId: "hidden-cave",
+      miniQuestRoll: 1,
+      trapCardId: "move-back-2",
+    });
+    expect(treasureState.lastLandingEffect).toMatchObject({
+      miniQuestId: "hidden-cave",
+      miniQuestRoll: 4,
+      treasureHandFull: false,
+    });
+    expect(treasureState.players[0]?.treasureHand).toHaveLength(1);
+  });
+
+  it("Hidden Cave Trap draw is deterministic", () => {
+    const drawHiddenCaveTrap = (): GameState =>
+      applyMove(
+        createBoardStateWithPath(
+          ["start", "camp-coin", "camp-blank", "camp-event"],
+          23,
+        ),
+        { type: "ROLL_DIE" },
+      );
+    const firstResult = drawHiddenCaveTrap();
+    const secondResult = drawHiddenCaveTrap();
+
+    expect(firstResult.lastLandingEffect?.trapCardId).toBe("move-back-2");
+    expect(firstResult.lastLandingEffect?.trapCardId).toBe(
+      secondResult.lastLandingEffect?.trapCardId,
+    );
+    expect(firstResult.lastLandingEffect?.message).toBe(
+      secondResult.lastLandingEffect?.message,
+    );
+  });
+
+  it("mini-quest rolls are deterministic from the same seed and state", () => {
+    const playMiniQuest = (): GameState =>
+      applyMove(createBoardStateAt("field-entry", 45), { type: "ROLL_DIE" });
+    const firstResult = playMiniQuest();
+    const secondResult = playMiniQuest();
+
+    expect(firstResult.lastLandingEffect?.miniQuestId).toBe("gold-mine");
+    expect(firstResult.lastLandingEffect?.miniQuestRoll).toBe(6);
+    expect(firstResult.lastLandingEffect?.miniQuestRoll).toBe(
+      secondResult.lastLandingEffect?.miniQuestRoll,
+    );
+    expect(firstResult.players[0]?.coins).toBe(secondResult.players[0]?.coins);
+  });
+
+  it("mini-quest movement waits until movement is complete before advancing the turn", () => {
+    const nextState = applyMove(
+      createBoardStateWithPath(["start", "camp-coin", "camp-blank", "camp-event"], 23),
+      { type: "ROLL_DIE" },
+    );
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      miniQuestId: "hidden-cave",
+      trapCardId: "move-back-2",
+    });
+    expect(nextState.currentPlayerIndex).toBe(1);
+    expect(nextState.players[0]?.positionId).toBe("camp-blank");
   });
 
   it("Trap draws are deterministic", () => {
@@ -918,6 +1101,60 @@ describe("game state", () => {
 
     expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
     expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.players.map((player) => player.positionId)).toEqual(
+      secondResult.players.map((player) => player.positionId),
+    );
+    expect(firstResult.players.map((player) => player.coins)).toEqual(
+      secondResult.players.map((player) => player.coins),
+    );
+    expect(firstResult.players.map((player) => player.treasureHand)).toEqual(
+      secondResult.players.map((player) => player.treasureHand),
+    );
+  });
+
+  it("same seed plus same player choices produces deterministic positions, coins, hands, cards, mini-quest results, and turn order", () => {
+    const playMiniQuestRound = (): GameState => {
+      const playerOneHiddenCave = applyMove(
+        createBoardStateWithPath(
+          ["start", "camp-coin", "camp-blank", "camp-event"],
+          23,
+        ),
+        { type: "ROLL_DIE" },
+      );
+
+      return applyMove(
+        {
+          ...playerOneHiddenCave,
+          players: playerOneHiddenCave.players.map((player, index) =>
+            index === playerOneHiddenCave.currentPlayerIndex
+              ? {
+                  ...player,
+                  positionId: "field-entry",
+                  pathHistory: ["start", "field-entry"],
+                }
+              : player,
+          ),
+          seed: 45,
+        },
+        { type: "ROLL_DIE" },
+      );
+    };
+    const firstResult = playMiniQuestRound();
+    const secondResult = playMiniQuestRound();
+
+    expect(firstResult.currentPlayerIndex).toBe(secondResult.currentPlayerIndex);
+    expect(firstResult.seed).toBe(secondResult.seed);
+    expect(firstResult.lastLandingEffect?.miniQuestId).toBe("gold-mine");
+    expect(firstResult.lastLandingEffect?.miniQuestRoll).toBe(6);
+    expect(firstResult.lastLandingEffect?.trapCardId).toBe(
+      secondResult.lastLandingEffect?.trapCardId,
+    );
+    expect(firstResult.lastLandingEffect?.miniQuestId).toBe(
+      secondResult.lastLandingEffect?.miniQuestId,
+    );
+    expect(firstResult.lastLandingEffect?.miniQuestRoll).toBe(
+      secondResult.lastLandingEffect?.miniQuestRoll,
+    );
     expect(firstResult.players.map((player) => player.positionId)).toEqual(
       secondResult.players.map((player) => player.positionId),
     );

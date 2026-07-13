@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BOARD_SPACES, START_SPACE_ID, type BoardSpaceType } from "../board";
+import { MINI_QUESTS } from "../miniQuests";
 
 const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "blank",
@@ -52,6 +53,29 @@ describe("board data", () => {
 
     REQUIRED_SPACE_TYPES.forEach((type) => {
       expect(types.has(type)).toBe(true);
+    });
+  });
+
+  it("Action spaces can reference valid mini-quest IDs", () => {
+    const miniQuestIds = new Set(MINI_QUESTS.map((miniQuest) => miniQuest.id));
+    const invalidMiniQuestIds = BOARD_SPACES.flatMap((space) =>
+      space.miniQuestId !== undefined && !miniQuestIds.has(space.miniQuestId)
+        ? [space.miniQuestId]
+        : [],
+    );
+
+    expect(invalidMiniQuestIds).toEqual([]);
+  });
+
+  it("every assigned mini-quest ID on the board exists in the catalog", () => {
+    const miniQuestIds = new Set(MINI_QUESTS.map((miniQuest) => miniQuest.id));
+    const assignedMiniQuestIds = BOARD_SPACES.flatMap((space) =>
+      space.miniQuestId === undefined ? [] : [space.miniQuestId],
+    );
+
+    expect(assignedMiniQuestIds.length).toBeGreaterThan(0);
+    assignedMiniQuestIds.forEach((miniQuestId) => {
+      expect(miniQuestIds.has(miniQuestId)).toBe(true);
     });
   });
 });

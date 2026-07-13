@@ -42,6 +42,26 @@ export const EVENT_COIN_REWARD = 20;
 
 export const CARD_FIXED_MOVE_STEPS = 2;
 
+export const MINI_QUEST_SMALL_COIN_REWARD = 10;
+
+export const MINI_QUEST_MEDIUM_COIN_REWARD = 20;
+
+export const MINI_QUEST_LARGE_COIN_REWARD = 40;
+
+export const MINI_QUEST_COIN_LOSS = 10;
+
+export const GOLD_MINE_MEDIUM_REWARD_MIN_ROLL = 4;
+
+export const GOLD_MINE_LARGE_REWARD_ROLL = 6;
+
+export const BURIED_TREASURE_TWO_CARD_MIN_ROLL = 5;
+
+export const HIDDEN_CAVE_TRAP_MAX_ROLL = 3;
+
+export const EVEN_ROLL_DIVISOR = 2;
+
+export const EVEN_ROLL_REMAINDER = 0;
+
 export const MAX_TREASURE_HAND_SIZE = 3;
 
 export const TREASURE_RESALE_VALUES = {

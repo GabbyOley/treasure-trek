@@ -1,4 +1,5 @@
 import { BOARD_POSITION_HINTS } from "../utils/constants";
+import type { MiniQuestId } from "./miniQuests";
 
 export type BoardSpaceType =
   | "blank"
@@ -25,11 +26,12 @@ export type BoardSpace = {
   risk: BoardRisk;
   nextSpaceIds: string[];
   position: BoardPositionHint;
+  miniQuestId?: MiniQuestId;
 };
 
 export const START_SPACE_ID = "start";
 
-export const BOARD_SPACES = [
+export const BOARD_SPACES: readonly BoardSpace[] = [
   {
     id: START_SPACE_ID,
     name: "Start Camp",
@@ -74,6 +76,7 @@ export const BOARD_SPACES = [
     risk: "safe",
     nextSpaceIds: ["field-entry", "cave-mouth"],
     position: BOARD_POSITION_HINTS.campFork,
+    miniQuestId: "hidden-cave",
   },
   {
     id: "field-entry",
@@ -92,6 +95,7 @@ export const BOARD_SPACES = [
     risk: "quest",
     nextSpaceIds: ["field-event"],
     position: BOARD_POSITION_HINTS.fieldAction,
+    miniQuestId: "gold-mine",
   },
   {
     id: "field-event",
@@ -114,11 +118,12 @@ export const BOARD_SPACES = [
   {
     id: "field-blank",
     name: "Meadow Bend",
-    type: "blank",
+    type: "action",
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["rejoin-bridge"],
     position: BOARD_POSITION_HINTS.fieldBlank,
+    miniQuestId: "buried-treasure",
   },
   {
     id: "cave-mouth",
@@ -173,15 +178,17 @@ export const BOARD_SPACES = [
     risk: "quest",
     nextSpaceIds: ["lookout-blank"],
     position: BOARD_POSITION_HINTS.rejoinBridge,
+    miniQuestId: "fishing-spot",
   },
   {
     id: "lookout-blank",
     name: "Lookout Trail",
-    type: "blank",
+    type: "action",
     region: "Field",
     risk: "quest",
     nextSpaceIds: ["lookout-coin"],
     position: BOARD_POSITION_HINTS.lookoutBlank,
+    miniQuestId: "monkey-business",
   },
   {
     id: "lookout-coin",
@@ -210,7 +217,7 @@ export const BOARD_SPACES = [
     nextSpaceIds: [],
     position: BOARD_POSITION_HINTS.sliceEnd,
   },
-] as const satisfies readonly BoardSpace[];
+];
 
 export function getBoardSpace(spaceId: string): BoardSpace | undefined {
   return BOARD_SPACES.find((space) => space.id === spaceId);

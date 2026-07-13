@@ -1,16 +1,27 @@
 import {
   DEFAULT_PLAYER_COUNT,
   FIRST_PLAYER_INDEX,
+  BURIED_TREASURE_TWO_CARD_MIN_ROLL,
   CARD_FIXED_MOVE_STEPS,
   COIN_SPACE_REWARD,
+  EVEN_ROLL_DIVISOR,
+  EVEN_ROLL_REMAINDER,
   EVENT_COIN_REWARD,
+  GOLD_MINE_LARGE_REWARD_ROLL,
+  GOLD_MINE_MEDIUM_REWARD_MIN_ROLL,
+  HIDDEN_CAVE_TRAP_MAX_ROLL,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   MAX_TREASURE_HAND_SIZE,
+  MINI_QUEST_COIN_LOSS,
+  MINI_QUEST_LARGE_COIN_REWARD,
+  MINI_QUEST_MEDIUM_COIN_REWARD,
+  MINI_QUEST_SMALL_COIN_REWARD,
   TITLE_SCREEN_DIE_SIDES,
   TRAP_COIN_LOSS,
 } from "../utils/constants";
 import { getBoardSpace, START_SPACE_ID, type BoardSpaceType } from "./board";
+import { getMiniQuest, type MiniQuestId } from "./miniQuests";
 import { rollSeededDie } from "./rng";
 import { drawTreasureCard, type TreasureCardId } from "./treasureCards";
 import {
@@ -47,9 +58,12 @@ export type LandingEffect = {
   message: string;
   coinDelta: number;
   treasureCardId: TreasureCardId | null;
+  treasureCardIds: TreasureCardId[];
   treasureHandFull: boolean;
   trapCardId: TrapCardId | null;
   eventCardId: EventCardId | null;
+  miniQuestId: MiniQuestId | null;
+  miniQuestRoll: number | null;
   effectRoll: number | null;
   nextSeed: number | null;
 };
@@ -415,9 +429,13 @@ function applyLandingEffect(
       ? state.players
       : updatePlayerCoins(state.players, playerIndex, landingEffect.coinDelta);
   const playersAfterTreasure =
-    landingEffect.treasureCardId === null || landingEffect.treasureHandFull
+    landingEffect.treasureCardIds.length === 0
       ? playersAfterCoins
-      : addTreasureCardToPlayer(playersAfterCoins, playerIndex, landingEffect.treasureCardId);
+      : addTreasureCardsToPlayer(
+          playersAfterCoins,
+          playerIndex,
+          landingEffect.treasureCardIds,
+        );
   const effectState = {
     ...state,
     seed: landingEffect.nextSeed ?? state.seed,
@@ -475,9 +493,12 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
     spaceId,
     spaceType,
     treasureCardId: null,
+    treasureCardIds: [],
     treasureHandFull: false,
     trapCardId: null,
     eventCardId: null,
+    miniQuestId: null,
+    miniQuestRoll: null,
     effectRoll: null,
     nextSeed: null,
   };
@@ -496,11 +517,7 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
     case "event":
       return resolveEventLanding(state, playerIndex, baseEffect);
     case "action":
-      return {
-        ...baseEffect,
-        message: "Action space: landmark interaction coming soon.",
-        coinDelta: 0,
-      };
+      return resolveActionLanding(state, playerIndex, baseEffect);
     case "blank":
       return {
         ...baseEffect,
@@ -510,10 +527,10 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
   }
 }
 
-function addTreasureCardToPlayer(
+function addTreasureCardsToPlayer(
   players: readonly PlayerState[],
   playerIndex: number,
-  treasureCardId: TreasureCardId,
+  treasureCardIds: readonly TreasureCardId[],
 ): PlayerState[] {
   return players.map((player, index) => {
     if (index !== playerIndex) {
@@ -522,7 +539,10 @@ function addTreasureCardToPlayer(
 
     return {
       ...player,
-      treasureHand: [...player.treasureHand, treasureCardId],
+      treasureHand: [...player.treasureHand, ...treasureCardIds].slice(
+        0,
+        MAX_TREASURE_HAND_SIZE,
+      ),
     };
   });
 }
@@ -608,6 +628,7 @@ function resolveTreasureLanding(
       message: `Treasure space: drew ${draw.card.name}, but the hand is full.`,
       coinDelta: 0,
       treasureCardId: draw.card.id,
+      treasureCardIds: [],
       treasureHandFull: true,
       nextSeed: draw.nextSeed,
     };
@@ -618,21 +639,221 @@ function resolveTreasureLanding(
     message: `Treasure space: drew ${draw.card.name}.`,
     coinDelta: 0,
     treasureCardId: draw.card.id,
+    treasureCardIds: [draw.card.id],
     treasureHandFull: false,
     nextSeed: draw.nextSeed,
   };
+}
+
+function resolveActionLanding(
+  state: GameState,
+  playerIndex: number,
+  baseEffect: Omit<LandingEffect, "message" | "coinDelta">,
+): LandingEffect {
+  const space = getBoardSpace(baseEffect.spaceId);
+
+  if (space?.miniQuestId === undefined) {
+    return {
+      ...baseEffect,
+      message: "Action space: landmark interaction coming soon.",
+      coinDelta: 0,
+    };
+  }
+
+  const miniQuest = getMiniQuest(space.miniQuestId);
+  const questRoll = rollSeededDie(state.seed, TITLE_SCREEN_DIE_SIDES);
+  const questEffect = {
+    ...baseEffect,
+    miniQuestId: miniQuest.id,
+    miniQuestRoll: questRoll.value,
+  };
+
+  if (miniQuest.id === "gold-mine") {
+    const coinDelta =
+      questRoll.value === GOLD_MINE_LARGE_REWARD_ROLL
+        ? MINI_QUEST_LARGE_COIN_REWARD
+        : questRoll.value >= GOLD_MINE_MEDIUM_REWARD_MIN_ROLL
+          ? MINI_QUEST_MEDIUM_COIN_REWARD
+          : MINI_QUEST_SMALL_COIN_REWARD;
+
+    return {
+      ...questEffect,
+      message: `${miniQuest.name}: rolled ${questRoll.value}, gained ${coinDelta} coins.`,
+      coinDelta,
+      nextSeed: questRoll.nextSeed,
+    };
+  }
+
+  if (miniQuest.id === "fishing-spot") {
+    const coinDelta =
+      questRoll.value % EVEN_ROLL_DIVISOR === EVEN_ROLL_REMAINDER
+        ? MINI_QUEST_MEDIUM_COIN_REWARD
+        : 0;
+
+    return {
+      ...questEffect,
+      message:
+        coinDelta === 0
+          ? `${miniQuest.name}: rolled ${questRoll.value}, nothing happened.`
+          : `${miniQuest.name}: rolled ${questRoll.value}, gained ${coinDelta} coins.`,
+      coinDelta,
+      nextSeed: questRoll.nextSeed,
+    };
+  }
+
+  if (miniQuest.id === "monkey-business") {
+    if (questRoll.value % EVEN_ROLL_DIVISOR !== EVEN_ROLL_REMAINDER) {
+      return {
+        ...questEffect,
+        message: `${miniQuest.name}: rolled ${questRoll.value}, lost ${MINI_QUEST_COIN_LOSS} coins.`,
+        coinDelta: -MINI_QUEST_COIN_LOSS,
+        nextSeed: questRoll.nextSeed,
+      };
+    }
+
+    const treasureDraw = drawTreasureCardsForPlayer(
+      state.players[playerIndex],
+      questRoll.nextSeed,
+      1,
+    );
+
+    return {
+      ...questEffect,
+      message: formatMiniQuestTreasureMessage(
+        miniQuest.name,
+        questRoll.value,
+        treasureDraw.cardNames,
+        treasureDraw.handFull,
+      ),
+      coinDelta: 0,
+      treasureCardId: treasureDraw.cardIds[0] ?? null,
+      treasureCardIds: treasureDraw.cardIds,
+      treasureHandFull: treasureDraw.handFull,
+      nextSeed: treasureDraw.nextSeed,
+    };
+  }
+
+  if (miniQuest.id === "buried-treasure") {
+    const drawCount =
+      questRoll.value >= BURIED_TREASURE_TWO_CARD_MIN_ROLL ? 2 : 1;
+    const treasureDraw = drawTreasureCardsForPlayer(
+      state.players[playerIndex],
+      questRoll.nextSeed,
+      drawCount,
+    );
+
+    return {
+      ...questEffect,
+      message: formatMiniQuestTreasureMessage(
+        miniQuest.name,
+        questRoll.value,
+        treasureDraw.cardNames,
+        treasureDraw.handFull,
+      ),
+      coinDelta: 0,
+      treasureCardId: treasureDraw.cardIds[0] ?? null,
+      treasureCardIds: treasureDraw.cardIds,
+      treasureHandFull: treasureDraw.handFull,
+      nextSeed: treasureDraw.nextSeed,
+    };
+  }
+
+  if (questRoll.value <= HIDDEN_CAVE_TRAP_MAX_ROLL) {
+    return resolveTrapEffectFromSeed(
+      questRoll.nextSeed,
+      questEffect,
+      `${miniQuest.name}: rolled ${questRoll.value}, drew Trap`,
+    );
+  }
+
+  const treasureDraw = drawTreasureCardsForPlayer(
+    state.players[playerIndex],
+    questRoll.nextSeed,
+    1,
+  );
+
+  return {
+    ...questEffect,
+    message: formatMiniQuestTreasureMessage(
+      miniQuest.name,
+      questRoll.value,
+      treasureDraw.cardNames,
+      treasureDraw.handFull,
+    ),
+    coinDelta: 0,
+    treasureCardId: treasureDraw.cardIds[0] ?? null,
+    treasureCardIds: treasureDraw.cardIds,
+    treasureHandFull: treasureDraw.handFull,
+    nextSeed: treasureDraw.nextSeed,
+  };
+}
+
+function drawTreasureCardsForPlayer(
+  player: PlayerState | undefined,
+  seed: number,
+  drawCount: number,
+): {
+  cardIds: TreasureCardId[];
+  cardNames: string[];
+  handFull: boolean;
+  nextSeed: number;
+} {
+  let nextSeed = seed;
+  const cardIds: TreasureCardId[] = [];
+  const cardNames: string[] = [];
+  const availableSlots = Math.max(
+    0,
+    MAX_TREASURE_HAND_SIZE - (player?.treasureHand.length ?? 0),
+  );
+
+  for (let drawIndex = 0; drawIndex < drawCount; drawIndex += 1) {
+    const draw = drawTreasureCard(nextSeed);
+    cardNames.push(draw.card.name);
+    nextSeed = draw.nextSeed;
+
+    if (cardIds.length < availableSlots) {
+      cardIds.push(draw.card.id);
+    }
+  }
+
+  return {
+    cardIds,
+    cardNames,
+    handFull: cardIds.length < drawCount,
+    nextSeed,
+  };
+}
+
+function formatMiniQuestTreasureMessage(
+  miniQuestName: string,
+  questRoll: number,
+  cardNames: readonly string[],
+  handFull: boolean,
+): string {
+  const drawnCards = cardNames.join(" and ");
+  const suffix = handFull ? ", but the hand is full" : "";
+
+  return `${miniQuestName}: rolled ${questRoll}, drew ${drawnCards}${suffix}.`;
 }
 
 function resolveTrapLanding(
   state: GameState,
   baseEffect: Omit<LandingEffect, "message" | "coinDelta">,
 ): LandingEffect {
-  const draw = drawTrapCard(state.seed);
+  return resolveTrapEffectFromSeed(state.seed, baseEffect, "Trap");
+}
+
+function resolveTrapEffectFromSeed(
+  seed: number,
+  baseEffect: Omit<LandingEffect, "message" | "coinDelta">,
+  label: string,
+): LandingEffect {
+  const draw = drawTrapCard(seed);
 
   if (draw.card.id === "safe") {
     return {
       ...baseEffect,
-      message: `Trap: ${draw.card.name}. No effect.`,
+      message: `${label}: ${draw.card.name}. No effect.`,
       coinDelta: 0,
       trapCardId: draw.card.id,
       nextSeed: draw.nextSeed,
@@ -642,7 +863,7 @@ function resolveTrapLanding(
   if (draw.card.id === "lose-20-coins") {
     return {
       ...baseEffect,
-      message: `Trap: ${draw.card.name}. Lost ${TRAP_COIN_LOSS} coins.`,
+      message: `${label}: ${draw.card.name}. Lost ${TRAP_COIN_LOSS} coins.`,
       coinDelta: -TRAP_COIN_LOSS,
       trapCardId: draw.card.id,
       nextSeed: draw.nextSeed,
@@ -652,7 +873,7 @@ function resolveTrapLanding(
   if (draw.card.id === "move-back-2") {
     return {
       ...baseEffect,
-      message: `Trap: ${draw.card.name}. Moved back ${CARD_FIXED_MOVE_STEPS} spaces if possible.`,
+      message: `${label}: ${draw.card.name}. Moved back ${CARD_FIXED_MOVE_STEPS} spaces if possible.`,
       coinDelta: 0,
       trapCardId: draw.card.id,
       nextSeed: draw.nextSeed,
@@ -663,7 +884,7 @@ function resolveTrapLanding(
 
   return {
     ...baseEffect,
-    message: `Trap: ${draw.card.name} - rolled ${roll.value}. Moved back if possible.`,
+    message: `${label}: ${draw.card.name} - rolled ${roll.value}. Moved back if possible.`,
     coinDelta: 0,
     trapCardId: draw.card.id,
     effectRoll: roll.value,
@@ -723,6 +944,7 @@ function resolveEventLanding(
     coinDelta: 0,
     eventCardId: draw.card.id,
     treasureCardId: treasureDraw.card.id,
+    treasureCardIds: handFull ? [] : [treasureDraw.card.id],
     treasureHandFull: handFull,
     nextSeed: treasureDraw.nextSeed,
   };
