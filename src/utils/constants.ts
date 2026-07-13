@@ -36,6 +36,12 @@ export const INITIAL_PLAYER_COINS = 0;
 
 export const COIN_SPACE_REWARD = 10;
 
+export const TRAP_COIN_LOSS = 20;
+
+export const EVENT_COIN_REWARD = 20;
+
+export const CARD_FIXED_MOVE_STEPS = 2;
+
 export const MAX_TREASURE_HAND_SIZE = 3;
 
 export const TREASURE_RESALE_VALUES = {
