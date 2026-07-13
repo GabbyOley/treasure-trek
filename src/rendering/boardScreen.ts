@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import {
   BOARD_SPACES,
+  FINISH_SPACE_ID,
   getBoardSpace,
   START_SPACE_ID,
   type BoardRegion,
@@ -30,10 +31,20 @@ type PlayerPieceView = {
   activeRing: THREE.Mesh;
 };
 
+type HtmlBoardPoint = {
+  x: number;
+  y: number;
+};
+
 type BoardDebugInfo = {
+  boardLayout: string;
   htmlBoardCssSize: string;
   htmlBoardSpaceCount: number;
   htmlBoardPlayerCount: number;
+  currentPlayerPositions: string;
+  startSpaceId: string;
+  finishSpaceId: string;
+  availableBranchChoices: string;
   htmlBoardIntersectsViewport: boolean;
   canvasCssSize: string;
   canvasBufferSize: string;
@@ -83,6 +94,31 @@ const RISK_LABELS: Record<BoardRisk, string> = {
   quest: "rolling quest",
   danger: "dangerous branch",
 };
+
+const HTML_BOARD_TRACKS: readonly (readonly string[])[] = [
+  ["start", "camp-coin", "camp-blank", "camp-event", "camp-fork"],
+  ["camp-fork", "field-entry", "field-action", "field-event", "field-coin", "field-blank", "rejoin-bridge"],
+  ["camp-fork", "cave-mouth", "cave-coin", "cave-trap", "cave-treasure", "volcano-action", "cave-event", "rejoin-bridge"],
+  ["rejoin-bridge", "lookout-blank", "swamp-action", "cliff-shop", "jungle-entry", "jungle-coin", "jungle-fork"],
+  ["jungle-fork", "jungle-event", "jungle-coin-2", "jungle-rejoin"],
+  ["jungle-fork", "cliff-1", "cliff-trap", "deep-jungle-2", "jungle-rejoin"],
+  ["jungle-rejoin", "final-choice"],
+  ["final-choice", "meadow-1", "meadow-2", "finish-gate", "finish"],
+  ["final-choice", "pond-1", "pond-2", "pond-3", "finish-gate", "finish"],
+  [
+    "final-choice",
+    "river-1",
+    "river-2",
+    "river-3",
+    "river-4",
+    "river-5",
+    "shipwreck-1",
+    "shipwreck-2",
+    "shipwreck-3",
+    "finish-gate",
+    "finish",
+  ],
+];
 
 export type BoardScreenView = {
   update: (state: GameState) => void;
@@ -450,9 +486,14 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       canvasRect.top < viewportHeight;
 
     return {
+      boardLayout: "readable-v1",
       htmlBoardCssSize: "not used by legacy Three helper",
       htmlBoardSpaceCount: BOARD_SPACES.length,
       htmlBoardPlayerCount: playerPieces.length,
+      currentPlayerPositions: "not used by legacy Three helper",
+      startSpaceId: START_SPACE_ID,
+      finishSpaceId: FINISH_SPACE_ID,
+      availableBranchChoices: "not used by legacy Three helper",
       htmlBoardIntersectsViewport: false,
       canvasCssSize: `${formatDebugNumber(canvasRect.width)} x ${formatDebugNumber(
         canvasRect.height,
@@ -906,44 +947,21 @@ function getBoardPositionMetrics(): {
 
 function renderHtmlBoard(state: GameState): string {
   const bounds = getBoardPositionMetrics();
-  const padding = 0.8;
-  const boardWidth = bounds.width + padding * 2;
-  const boardDepth = bounds.depth + padding * 2;
-  const project = (position: { x: number; z: number }): { x: number; y: number } => ({
-    x: ((position.x - bounds.minX + padding) / boardWidth) * 100,
-    y: ((position.z - bounds.minZ + padding) / boardDepth) * 100,
+  const xPadding = 2.2;
+  const zPadding = 1.45;
+  const boardWidth = bounds.width + xPadding * 2;
+  const boardDepth = bounds.depth + zPadding * 2;
+  const project = (position: { x: number; z: number }): HtmlBoardPoint => ({
+    x: ((position.x - bounds.minX + xPadding) / boardWidth) * 100,
+    y: ((position.z - bounds.minZ + zPadding) / boardDepth) * 100,
   });
 
-  const connections = BOARD_SPACES.flatMap((space) =>
-    space.nextSpaceIds.flatMap((nextSpaceId) => {
-      const nextSpace = getBoardSpace(nextSpaceId);
-
-      if (nextSpace === undefined) {
-        return [];
-      }
-
-      const start = project(space.position);
-      const end = project(nextSpace.position);
-      const width = Math.hypot(end.x - start.x, end.y - start.y);
-      const angle = Math.atan2(end.y - start.y, end.x - start.x);
-
-      return [
-        `
-          <div
-            class="html-board-connection"
-            data-testid="board-connection"
-            style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
-          ></div>
-        `,
-      ];
-    }),
-  ).join("");
+  const tracks = HTML_BOARD_TRACKS.map((track) => renderHtmlBoardTrack(track, project)).join("");
   const tiles = BOARD_SPACES.map((space) => {
     const point = project(space.position);
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
     const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
-    const label =
-      space.id === START_SPACE_ID ? "Start" : space.id === "finish" ? "Finish" : "";
+    const label = getHtmlBoardLabel(space.id);
 
     return `
       <div
@@ -968,7 +986,8 @@ function renderHtmlBoard(state: GameState): string {
       }
 
       const point = project(space.position);
-      const offset = index === 0 ? -12 : 12;
+      const offset = index === 0 ? -8 : 8;
+      const yOffset = index === 0 ? 10 : -10;
 
       return `
         <div
@@ -976,15 +995,13 @@ function renderHtmlBoard(state: GameState): string {
           data-testid="player-token"
           data-player-index="${index}"
           title="${player.name} on ${space.name}"
-          style="left: ${point.x}%; top: ${point.y}%; --token-offset-x: ${offset}px;"
+          style="left: ${point.x}%; top: ${point.y}%; --token-offset-x: ${offset}px; --token-offset-y: ${yOffset}px;"
         >
           ${index + 1}
         </div>
       `;
     })
     .join("");
-  const debugText = `HTML board rendered: ${BOARD_SPACES.length} spaces, ${state.players.length} players`;
-
   if (BOARD_SPACES.length === 0) {
     return `
       <p class="html-board-debug" data-testid="html-board-debug">HTML board rendered: 0 spaces, ${state.players.length} players</p>
@@ -995,13 +1012,66 @@ function renderHtmlBoard(state: GameState): string {
   }
 
   return `
-    <p class="html-board-debug" data-testid="html-board-debug">${debugText}</p>
     <div class="html-board-surface" data-testid="html-board-surface">
-      ${connections}
+      ${tracks}
       ${tiles}
       ${players}
     </div>
   `;
+}
+
+function renderHtmlBoardTrack(
+  track: readonly string[],
+  project: (position: { x: number; z: number }) => HtmlBoardPoint,
+): string {
+  return track
+    .slice(0, -1)
+    .map((spaceId, index) => {
+      const nextSpaceId = track[index + 1];
+      const space = getBoardSpace(spaceId);
+      const nextSpace = nextSpaceId === undefined ? undefined : getBoardSpace(nextSpaceId);
+
+      if (space === undefined || nextSpace === undefined) {
+        return "";
+      }
+
+      return renderHtmlBoardConnection(project(space.position), project(nextSpace.position));
+    })
+    .join("");
+}
+
+function renderHtmlBoardConnection(start: HtmlBoardPoint, end: HtmlBoardPoint): string {
+  const width = Math.hypot(end.x - start.x, end.y - start.y);
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+
+  return `
+    <div
+      class="html-board-connection"
+      data-testid="board-connection"
+      style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
+    ></div>
+  `;
+}
+
+function getHtmlBoardLabel(spaceId: string): string {
+  switch (spaceId) {
+    case START_SPACE_ID:
+      return "Start";
+    case "final-choice":
+      return "Choice";
+    case "meadow-1":
+      return "Meadow";
+    case "pond-2":
+      return "Pond";
+    case "river-2":
+      return "River";
+    case "shipwreck-2":
+      return "Shipwreck";
+    case "finish":
+      return "Finish";
+    default:
+      return "";
+  }
 }
 
 function getProjectedRouteBounds(
@@ -1065,11 +1135,21 @@ function getHtmlBoardDebugInfo(
     boardRect.top < viewportHeight;
 
   return {
+    boardLayout: "readable-v1",
     htmlBoardCssSize: `${formatDebugNumber(boardRect.width)} x ${formatDebugNumber(
       boardRect.height,
     )}`,
     htmlBoardSpaceCount: BOARD_SPACES.length,
     htmlBoardPlayerCount: state.players.length,
+    currentPlayerPositions: state.players
+      .map((player) => `${player.name}: ${player.positionId}`)
+      .join(", "),
+    startSpaceId: START_SPACE_ID,
+    finishSpaceId: FINISH_SPACE_ID,
+    availableBranchChoices:
+      state.availableBranchSpaceIds.length === 0
+        ? "none"
+        : state.availableBranchSpaceIds.join(", "),
     htmlBoardIntersectsViewport,
     canvasCssSize: "not used for main board",
     canvasBufferSize: "not used for main board",
@@ -1092,10 +1172,15 @@ function renderBoardDebug(info: BoardDebugInfo): string {
     <p class="board-debug-title">Board Visibility Debug</p>
     <p>This panel is only for diagnosing blank-board bugs.</p>
     <dl>
+      <div><dt>Board layout</dt><dd>${info.boardLayout}</dd></div>
       <div><dt>HTML board CSS size</dt><dd>${info.htmlBoardCssSize}</dd></div>
       <div><dt>HTML board in viewport</dt><dd>${htmlVisibilityLabel}</dd></div>
       <div><dt>HTML spaces rendered</dt><dd>${info.htmlBoardSpaceCount}</dd></div>
       <div><dt>HTML players rendered</dt><dd>${info.htmlBoardPlayerCount}</dd></div>
+      <div><dt>Player positions</dt><dd>${info.currentPlayerPositions}</dd></div>
+      <div><dt>Start space ID</dt><dd>${info.startSpaceId}</dd></div>
+      <div><dt>Finish space ID</dt><dd>${info.finishSpaceId}</dd></div>
+      <div><dt>Available branch choices</dt><dd>${info.availableBranchChoices}</dd></div>
       <div><dt>Canvas CSS size</dt><dd>${info.canvasCssSize}</dd></div>
       <div><dt>Canvas buffer size</dt><dd>${info.canvasBufferSize}</dd></div>
       <div><dt>Canvas in viewport</dt><dd>${canvasVisibilityLabel}</dd></div>

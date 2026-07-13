@@ -25,11 +25,13 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await expect(page.getByTestId("board-screen")).toBeVisible();
   await expect(page.getByTestId("html-board")).toBeVisible();
-  await expect(page.getByTestId("html-board-debug")).toContainText(
-    "HTML board rendered: 66 spaces, 2 players",
-  );
-  await expect(page.getByTestId("board-space")).toHaveCount(66);
+  await expect(page.getByTestId("board-space")).toHaveCount(45);
   await expect(page.getByTestId("player-token")).toHaveCount(2);
+  await expect(page.getByTestId("board-connection").first()).toBeVisible();
+  const boardSurface = page.getByTestId("html-board-surface");
+
+  await expect(boardSurface.getByText("Start")).toBeVisible();
+  await expect(boardSurface.getByText("Finish")).toBeVisible();
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
   const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
@@ -102,8 +104,14 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
   await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
+  await expect(page.getByTestId("board-debug")).toContainText("readable-v1");
+  await expect(page.getByTestId("board-debug")).toContainText("HTML spaces rendered");
+  await expect(page.getByTestId("board-debug")).toContainText("HTML players rendered");
+  await expect(page.getByTestId("board-debug")).toContainText("Player positions");
+  await expect(page.getByTestId("board-debug")).toContainText("Start space ID");
+  await expect(page.getByTestId("board-debug")).toContainText("Finish space ID");
   await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
-  await expect(page.getByTestId("board-debug")).toContainText("66");
+  await expect(page.getByTestId("board-debug")).toContainText("45");
   await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");
   await expect(page.getByTestId("board-debug")).toContainText("2");
   await expect(page.getByTestId("board-debug")).toContainText("Route anchors on screen");

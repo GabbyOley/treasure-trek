@@ -25,11 +25,9 @@ const REQUIRED_REGIONS: BoardRegion[] = [
   "Cave",
   "Volcano",
   "Field",
-  "Waterfall",
   "Swamp",
   "Cliff",
   "Jungle",
-  "Deep Jungle",
   "Meadow",
   "Pond",
   "River",
@@ -89,9 +87,9 @@ describe("board data", () => {
     expect(visited.has(FINISH_SPACE_ID)).toBe(true);
   });
 
-  it("has a larger prototype-board space count", () => {
-    expect(BOARD_SPACES.length).toBeGreaterThanOrEqual(60);
-    expect(BOARD_SPACES.length).toBeLessThanOrEqual(90);
+  it("has a readable v1 board space count", () => {
+    expect(BOARD_SPACES.length).toBeGreaterThanOrEqual(35);
+    expect(BOARD_SPACES.length).toBeLessThanOrEqual(45);
   });
 
   it("includes every required island region", () => {
