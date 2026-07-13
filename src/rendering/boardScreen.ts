@@ -21,7 +21,15 @@ import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
-  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "finish";
+  marker:
+    | "none"
+    | "coin"
+    | "treasure"
+    | "trap"
+    | "event"
+    | "action"
+    | "goldenKey"
+    | "finish";
 };
 
 type PlayerPieceView = {
@@ -66,6 +74,10 @@ const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
   action: {
     color: PALETTE.mist,
     marker: "action",
+  },
+  goldenKey: {
+    color: PALETTE.gold,
+    marker: "goldenKey",
   },
   finish: {
     color: PALETTE.gold,
@@ -137,6 +149,7 @@ export function renderBoardScreen(
           >
             Roll
           </button>
+          <p class="golden-key-chip" data-golden-key-holder></p>
           <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
           <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
           <div class="board-choice-list" data-board-choices></div>
@@ -167,6 +180,9 @@ export function renderBoardScreen(
   const status = container.querySelector<HTMLParagraphElement>("[data-board-status]");
   const roll = container.querySelector<HTMLParagraphElement>("[data-board-roll]");
   const playerCoins = container.querySelector<HTMLDivElement>("[data-player-coins]");
+  const goldenKeyHolder = container.querySelector<HTMLParagraphElement>(
+    "[data-golden-key-holder]",
+  );
   const playerHands = container.querySelector<HTMLDivElement>("[data-player-hands]");
   const choices = container.querySelector<HTMLDivElement>("[data-board-choices]");
   const shopActions = container.querySelector<HTMLDivElement>("[data-shop-actions]");
@@ -181,6 +197,7 @@ export function renderBoardScreen(
     status === null ||
     roll === null ||
     playerCoins === null ||
+    goldenKeyHolder === null ||
     playerHands === null ||
     choices === null ||
     shopActions === null ||
@@ -210,6 +227,7 @@ export function renderBoardScreen(
         ? "No board roll yet."
         : `${getMovingPlayerName(nextState)} rolled ${nextState.lastRoll}.`;
     playerCoins.innerHTML = renderPlayerCoins(nextState);
+    goldenKeyHolder.textContent = renderGoldenKeyHolder(nextState);
     playerHands.innerHTML = renderPlayerHands(nextState);
     rollButton.disabled =
       nextState.phase === "moving" ||
@@ -833,6 +851,51 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
     return;
   }
 
+  if (marker === "goldenKey") {
+    const keyMaterial = new THREE.MeshStandardMaterial({
+      color: PALETTE.mist,
+      roughness: BOARD_PLACEHOLDER.materials.coin.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.coin.metalness,
+    });
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(
+        BOARD_PLACEHOLDER.markers.goldenKeyRingRadius,
+        BOARD_PLACEHOLDER.markers.goldenKeyRingTubeRadius,
+      ),
+      keyMaterial,
+    );
+    const shaft = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        BOARD_PLACEHOLDER.markers.goldenKeyShaftWidth,
+        BOARD_PLACEHOLDER.markers.goldenKeyShaftHeight,
+        BOARD_PLACEHOLDER.markers.goldenKeyShaftDepth,
+      ),
+      keyMaterial.clone(),
+    );
+    const tooth = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        BOARD_PLACEHOLDER.markers.goldenKeyToothWidth,
+        BOARD_PLACEHOLDER.markers.goldenKeyToothHeight,
+        BOARD_PLACEHOLDER.markers.goldenKeyToothDepth,
+      ),
+      keyMaterial.clone(),
+    );
+
+    ring.rotation.x = BOARD_PLACEHOLDER.rotations.flatMarkerX;
+    ring.position.set(BOARD_PLACEHOLDER.markers.goldenKeyRingX, markerHeight, 0);
+    shaft.position.set(BOARD_PLACEHOLDER.markers.goldenKeyShaftX, markerHeight, 0);
+    tooth.position.set(
+      BOARD_PLACEHOLDER.markers.goldenKeyToothX,
+      markerHeight,
+      BOARD_PLACEHOLDER.markers.goldenKeyToothZ,
+    );
+    ring.castShadow = true;
+    shaft.castShadow = true;
+    tooth.castShadow = true;
+    group.add(ring, shaft, tooth);
+    return;
+  }
+
   if (marker === "finish") {
     const finishMarker = new THREE.Mesh(
       new THREE.ConeGeometry(
@@ -1079,6 +1142,10 @@ function renderGameOver(state: GameState): string {
       `,
     )
     .join("");
+  const goldenKeyBonus =
+    result.goldenKeyBonusPlayerIndex === null
+      ? ""
+      : `<p class="game-over-note">${state.players[result.goldenKeyBonusPlayerIndex]?.name ?? "Player"} received the ${result.goldenKeyBonusAwarded}-coin Golden Key bonus.</p>`;
 
   return `
     <section class="game-over-panel" aria-label="Game Over final results">
@@ -1086,6 +1153,7 @@ function renderGameOver(state: GameState): string {
       <p class="game-over-detail">${finisherName} reached Finish.</p>
       <p class="game-over-result">${resultText}</p>
       <div class="game-over-totals">${totals}</div>
+      ${goldenKeyBonus}
       <p class="game-over-note">No finish bonus is awarded in this v1 prototype.</p>
       <button
         type="button"
@@ -1097,6 +1165,15 @@ function renderGameOver(state: GameState): string {
       </button>
     </section>
   `;
+}
+
+function renderGoldenKeyHolder(state: GameState): string {
+  const holderName =
+    state.goldenKeyHolderPlayerIndex === null
+      ? "No one"
+      : state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "Player";
+
+  return `Golden Key: ${holderName}`;
 }
 
 function getMovingPlayerName(state: GameState): string {

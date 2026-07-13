@@ -9,6 +9,7 @@ export type BoardSpaceType =
   | "trap"
   | "event"
   | "action"
+  | "goldenKey"
   | "finish";
 
 export type BoardRegion =
@@ -604,8 +605,8 @@ export const BOARD_SPACES: readonly BoardSpace[] = [
   },
   {
     id: "river-5",
-    name: "Golden Sandbar",
-    type: "coin",
+    name: "Golden Key Sandbar",
+    type: "goldenKey",
     region: "River",
     risk: "danger",
     nextSpaceIds: ["shipwreck-1"],

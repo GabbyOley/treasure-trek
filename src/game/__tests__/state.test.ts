@@ -6,6 +6,7 @@ import {
   EVENT_COIN_REWARD,
   FINISH_BONUS_V1,
   FIRST_PLAYER_INDEX,
+  GOLDEN_KEY_FINISH_BONUS,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   MINI_QUEST_COIN_LOSS,
@@ -152,6 +153,24 @@ function createFinishState(playerOneCoins: number, playerTwoCoins: number): Game
   return applyMove(fundedState, { type: "ROLL_DIE" });
 }
 
+function createFinishStateWithGoldenKey(
+  playerOneCoins: number,
+  playerTwoCoins: number,
+  goldenKeyHolderPlayerIndex: number,
+): GameState {
+  const preFinishState = createBoardStateAt("finish-gate", 7);
+  const fundedState = {
+    ...preFinishState,
+    goldenKeyHolderPlayerIndex,
+    players: preFinishState.players.map((player, index) => ({
+      ...player,
+      coins: index === 0 ? playerOneCoins : playerTwoCoins,
+    })),
+  };
+
+  return applyMove(fundedState, { type: "ROLL_DIE" });
+}
+
 describe("game state", () => {
   it("creates the initial state", () => {
     expect(createInitialGameState()).toEqual({
@@ -188,6 +207,7 @@ describe("game state", () => {
       lastLandingEffect: null,
       pendingLandingEffect: null,
       activeShopId: null,
+      goldenKeyHolderPlayerIndex: null,
       gameOverResult: null,
     });
   });
@@ -215,6 +235,10 @@ describe("game state", () => {
     const state = createInitialGameState();
 
     expect(state.players.map((player) => player.treasureHand)).toEqual([[], []]);
+  });
+
+  it("players start without Golden Key", () => {
+    expect(createInitialGameState().goldenKeyHolderPlayerIndex).toBeNull();
   });
 
   it("Treasure card catalog includes the 7 confirmed cards and resale values", () => {
@@ -993,6 +1017,84 @@ describe("game state", () => {
     expect(FINISH_BONUS_V1).toBe(0);
     expect(nextState.gameOverResult?.finishBonusAwarded).toBe(FINISH_BONUS_V1);
     expect(nextState.gameOverResult?.finalCoins).toEqual([20, 10]);
+  });
+
+  it("landing on Golden Key claims it", () => {
+    const nextState = applyMove(createBoardStateAt("river-4", 7), { type: "ROLL_DIE" });
+
+    expect(nextState.players[0]?.positionId).toBe("river-5");
+    expect(nextState.goldenKeyHolderPlayerIndex).toBe(0);
+    expect(nextState.lastLandingEffect?.spaceType).toBe("goldenKey");
+    expect(nextState.lastTurnSummary).toContain("Player 1 claimed the Golden Key");
+  });
+
+  it("landing on Golden Key steals it from another player", () => {
+    const preKeyState = {
+      ...createBoardStateAt("river-4", 7),
+      goldenKeyHolderPlayerIndex: 1,
+    };
+    const nextState = applyMove(preKeyState, { type: "ROLL_DIE" });
+
+    expect(nextState.goldenKeyHolderPlayerIndex).toBe(0);
+    expect(nextState.lastLandingEffect?.message).toContain(
+      "Player 1 stole the Golden Key from Player 2",
+    );
+  });
+
+  it("only one player can hold Golden Key at a time", () => {
+    const firstClaim = applyMove(createBoardStateAt("river-4", 7), {
+      type: "ROLL_DIE",
+    });
+    const secondClaimSetup = {
+      ...createBoardStateAt("river-4", 7),
+      currentPlayerIndex: 1,
+      movingPlayerIndex: 1,
+      goldenKeyHolderPlayerIndex: firstClaim.goldenKeyHolderPlayerIndex,
+      players: firstClaim.players.map((player, index) => ({
+        ...player,
+        positionId: index === 1 ? "river-4" : player.positionId,
+      })),
+    };
+    const secondClaim = applyMove(secondClaimSetup, { type: "ROLL_DIE" });
+
+    expect(secondClaim.goldenKeyHolderPlayerIndex).toBe(1);
+  });
+
+  it("finishing with Golden Key adds 100 coins", () => {
+    const nextState = createFinishStateWithGoldenKey(20, 10, 0);
+
+    expect(nextState.players[0]?.coins).toBe(20 + GOLDEN_KEY_FINISH_BONUS);
+    expect(nextState.gameOverResult?.goldenKeyBonusAwarded).toBe(
+      GOLDEN_KEY_FINISH_BONUS,
+    );
+    expect(nextState.gameOverResult?.finalCoins).toEqual([120, 10]);
+    expect(nextState.gameOverResult?.message).toContain(
+      "Player 1 gained 100 coins from the Golden Key",
+    );
+  });
+
+  it("winner calculation uses post-bonus coin totals", () => {
+    const nextState = createFinishStateWithGoldenKey(10, 90, 0);
+
+    expect(nextState.gameOverResult?.finalCoins).toEqual([110, 90]);
+    expect(nextState.gameOverResult?.winnerPlayerIndex).toBe(0);
+  });
+
+  it("a player can still lose after finishing with Golden Key if another player has more coins", () => {
+    const nextState = createFinishStateWithGoldenKey(10, 140, 0);
+
+    expect(nextState.gameOverResult?.finalCoins).toEqual([110, 140]);
+    expect(nextState.gameOverResult?.winnerPlayerIndex).toBe(1);
+  });
+
+  it("ties after Golden Key bonus still show tie", () => {
+    const nextState = createFinishStateWithGoldenKey(10, 110, 0);
+
+    expect(nextState.gameOverResult).toMatchObject({
+      winnerPlayerIndex: null,
+      isTie: true,
+      finalCoins: [110, 110],
+    });
   });
 
   it("rolling is not legal after game over", () => {

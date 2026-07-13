@@ -52,7 +52,9 @@ export const MINI_QUEST_COIN_LOSS = 10;
 
 export const SHOP_PURCHASE_PRICE = 40;
 
-// Finish placement and Golden Key bonuses are unresolved, so v1 awards no finish bonus.
+export const GOLDEN_KEY_FINISH_BONUS = 100;
+
+// Finish placement bonuses are unresolved, so v1 awards no placement bonus.
 export const FINISH_BONUS_V1 = 0;
 
 export const GOLD_MINE_MEDIUM_REWARD_MIN_ROLL = 4;
@@ -253,6 +255,18 @@ export const BOARD_PLACEHOLDER = {
     actionWidth: 0.28,
     actionHeight: 0.07,
     actionDepth: 0.08,
+    goldenKeyRingRadius: 0.12,
+    goldenKeyRingTubeRadius: 0.025,
+    goldenKeyShaftWidth: 0.28,
+    goldenKeyShaftHeight: 0.055,
+    goldenKeyShaftDepth: 0.055,
+    goldenKeyToothWidth: 0.075,
+    goldenKeyToothHeight: 0.09,
+    goldenKeyToothDepth: 0.055,
+    goldenKeyRingX: -0.08,
+    goldenKeyShaftX: 0.12,
+    goldenKeyToothX: 0.23,
+    goldenKeyToothZ: 0.04,
     finishRadius: 0.18,
     finishHeight: 0.34,
     finishSegments: 5,

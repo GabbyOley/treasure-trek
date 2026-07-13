@@ -8,6 +8,7 @@ import {
   EVEN_ROLL_REMAINDER,
   EVENT_COIN_REWARD,
   FINISH_BONUS_V1,
+  GOLDEN_KEY_FINISH_BONUS,
   GOLD_MINE_LARGE_REWARD_ROLL,
   GOLD_MINE_MEDIUM_REWARD_MIN_ROLL,
   HIDDEN_CAVE_TRAP_MAX_ROLL,
@@ -70,6 +71,8 @@ export type GameOverResult = {
   isTie: boolean;
   finalCoins: number[];
   finishBonusAwarded: number;
+  goldenKeyBonusAwarded: number;
+  goldenKeyBonusPlayerIndex: number | null;
   message: string;
 };
 
@@ -108,6 +111,7 @@ export type GameState = {
   lastLandingEffect: LandingEffect | null;
   pendingLandingEffect: LandingEffect | null;
   activeShopId: ShopId | null;
+  goldenKeyHolderPlayerIndex: number | null;
   gameOverResult: GameOverResult | null;
 };
 
@@ -160,6 +164,7 @@ export function createInitialGameState(): GameState {
     lastLandingEffect: null,
     pendingLandingEffect: null,
     activeShopId: null,
+    goldenKeyHolderPlayerIndex: null,
     gameOverResult: null,
   };
 }
@@ -184,6 +189,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastLandingEffect: null,
         pendingLandingEffect: null,
         activeShopId: null,
+        goldenKeyHolderPlayerIndex: null,
         gameOverResult: null,
       };
 
@@ -200,6 +206,7 @@ export function applyMove(state: GameState, move: Move): GameState {
         lastLandingEffect: null,
         pendingLandingEffect: null,
         activeShopId: null,
+        goldenKeyHolderPlayerIndex: null,
         gameOverResult: null,
       };
 
@@ -404,11 +411,24 @@ function finishMovement(state: GameState): GameState {
 }
 
 function completeGame(state: GameState, finisherPlayerIndex: number): GameState {
-  const gameOverResult = getGameOverResult(state.players, finisherPlayerIndex);
+  const goldenKeyBonusAwarded =
+    state.goldenKeyHolderPlayerIndex === finisherPlayerIndex
+      ? GOLDEN_KEY_FINISH_BONUS
+      : 0;
+  const players =
+    goldenKeyBonusAwarded === 0
+      ? state.players
+      : updatePlayerCoins(state.players, finisherPlayerIndex, goldenKeyBonusAwarded);
+  const gameOverResult = getGameOverResult(
+    players,
+    finisherPlayerIndex,
+    goldenKeyBonusAwarded,
+  );
   const finisherName = state.players[finisherPlayerIndex]?.name ?? "Player";
 
   return {
     ...state,
+    players,
     phase: "gameOver",
     pendingMovement: 0,
     availableBranchSpaceIds: [],
@@ -426,6 +446,7 @@ function completeGame(state: GameState, finisherPlayerIndex: number): GameState 
 function getGameOverResult(
   players: readonly PlayerState[],
   finisherPlayerIndex: number,
+  goldenKeyBonusAwarded: number,
 ): GameOverResult {
   const finalCoins = players.map((player) => player.coins + FINISH_BONUS_V1);
   const highestCoins = Math.max(...finalCoins);
@@ -434,10 +455,15 @@ function getGameOverResult(
   );
   const isTie = winningIndexes.length > 1;
   const winnerPlayerIndex = isTie ? null : winningIndexes[0] ?? null;
-  const message =
+  const bonusMessage =
+    goldenKeyBonusAwarded === 0
+      ? ""
+      : `${players[finisherPlayerIndex]?.name ?? "Player"} gained ${goldenKeyBonusAwarded} coins from the Golden Key. `;
+  const winnerMessage =
     winnerPlayerIndex === null
       ? "Final coins are tied."
       : `${players[winnerPlayerIndex]?.name ?? "Player"} wins with ${highestCoins} coins.`;
+  const message = `${bonusMessage}${winnerMessage}`;
 
   return {
     finisherPlayerIndex,
@@ -445,6 +471,9 @@ function getGameOverResult(
     isTie,
     finalCoins,
     finishBonusAwarded: FINISH_BONUS_V1,
+    goldenKeyBonusAwarded,
+    goldenKeyBonusPlayerIndex:
+      goldenKeyBonusAwarded === 0 ? null : finisherPlayerIndex,
     message,
   };
 }
@@ -595,6 +624,17 @@ function applyLandingEffect(
     };
   }
 
+  if (landingEffect.spaceType === "goldenKey") {
+    return completeTurn(
+      {
+        ...effectState,
+        goldenKeyHolderPlayerIndex: playerIndex,
+      },
+      landingEffect,
+      summary,
+    );
+  }
+
   if (landingEffect.trapCardId === "move-back-2") {
     return completeTurn(
       movePlayerBackward(effectState, playerIndex, CARD_FIXED_MOVE_STEPS),
@@ -670,6 +710,22 @@ function resolveLandingEffect(state: GameState, playerIndex: number): LandingEff
       return resolveEventLanding(state, playerIndex, baseEffect);
     case "action":
       return resolveActionLanding(state, playerIndex, baseEffect);
+    case "goldenKey": {
+      const previousHolder = state.goldenKeyHolderPlayerIndex;
+      const previousHolderName =
+        previousHolder === null ? null : state.players[previousHolder]?.name ?? "Player";
+      const playerName = player?.name ?? "Player";
+      const message =
+        previousHolder !== null && previousHolder !== playerIndex
+          ? `${playerName} stole the Golden Key from ${previousHolderName}.`
+          : `${playerName} claimed the Golden Key.`;
+
+      return {
+        ...baseEffect,
+        message,
+        coinDelta: 0,
+      };
+    }
     case "blank":
       return {
         ...baseEffect,

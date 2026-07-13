@@ -17,6 +17,7 @@ const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "trap",
   "event",
   "action",
+  "goldenKey",
   "finish",
 ];
 
@@ -56,6 +57,16 @@ describe("board data", () => {
       name: "Finish",
       type: "finish",
       nextSpaceIds: [],
+    });
+  });
+
+  it("has a Golden Key space", () => {
+    const goldenKeySpace = BOARD_SPACES.find((space) => space.type === "goldenKey");
+
+    expect(goldenKeySpace).toMatchObject({
+      id: "river-5",
+      name: "Golden Key Sandbar",
+      region: "River",
     });
   });
 
