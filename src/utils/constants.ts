@@ -225,6 +225,28 @@ export const HTML_BOARD_CONNECTION_BENDS = {
   "final-choice>river-1": [{ x: 72, y: 78 }],
 } as const;
 
+export const HTML_BOARD_ROUTE_GUIDES = [
+  { x: 5, y: 50, width: 18, angle: 0 },
+  { x: 20, y: 28, width: 28, angle: 0 },
+  { x: 20, y: 68, width: 28, angle: 0 },
+  { x: 48, y: 48, width: 28, angle: 0 },
+  { x: 54, y: 18, width: 44, angle: 0 },
+  { x: 54, y: 76, width: 44, angle: 0 },
+  { x: 58, y: 56, width: 34, angle: 0 },
+  { x: 72, y: 20, width: 27, angle: 0 },
+  { x: 72, y: 52, width: 27, angle: 0 },
+  { x: 72, y: 78, width: 20, angle: 0 },
+  { x: 84, y: 66, width: 13, angle: 0 },
+  { x: 92, y: 52, width: 7, angle: 0 },
+  { x: 20, y: 48, width: 21, angle: -35 },
+  { x: 20, y: 52, width: 21, angle: 35 },
+  { x: 48, y: 48, width: 30, angle: -20 },
+  { x: 48, y: 48, width: 30, angle: 20 },
+  { x: 70, y: 52, width: 27, angle: -58 },
+  { x: 70, y: 52, width: 25, angle: 0 },
+  { x: 70, y: 52, width: 27, angle: 58 },
+] as const;
+
 export const BOARD_PLACEHOLDER = {
   renderer: {
     maxPixelRatio: 2,

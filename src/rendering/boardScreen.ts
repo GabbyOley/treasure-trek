@@ -22,6 +22,7 @@ import {
   BOARD_PLACEHOLDER,
   HTML_BOARD_CONNECTION_BENDS,
   HTML_BOARD_LAYOUT,
+  HTML_BOARD_ROUTE_GUIDES,
   PALETTE,
 } from "../utils/constants";
 
@@ -910,6 +911,15 @@ function getBoardPositionMetrics(): {
 }
 
 function renderHtmlBoard(state: GameState): string {
+  const routeGuides = HTML_BOARD_ROUTE_GUIDES.map(
+    (guide) => `
+      <div
+        class="html-board-route-guide"
+        aria-hidden="true"
+        style="left: ${guide.x}%; top: ${guide.y}%; width: ${guide.width}%; transform: rotate(${guide.angle}deg);"
+      ></div>
+    `,
+  ).join("");
   const connections = BOARD_SPACES.flatMap((space) =>
     space.nextSpaceIds.flatMap((nextSpaceId) => {
       const nextSpace = getBoardSpace(nextSpaceId);
@@ -996,6 +1006,7 @@ function renderHtmlBoard(state: GameState): string {
 
   return `
     <div class="html-board-surface" data-testid="html-board-surface">
+      ${routeGuides}
       ${connections}
       ${tiles}
       ${players}
