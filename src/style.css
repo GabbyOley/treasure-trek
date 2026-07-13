@@ -645,7 +645,7 @@ h1 {
     right: 10px;
     gap: 0.52rem;
     width: calc(100% - 20px);
-    max-height: 46svh;
+    max-height: 34svh;
     overflow: auto;
     padding: 0.85rem;
     border-radius: 18px;

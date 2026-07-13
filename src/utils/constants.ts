@@ -164,17 +164,24 @@ export const BOARD_PLACEHOLDER = {
     far: 42,
   },
   camera: {
-    fov: 46,
+    fov: 42,
+    narrowFov: 50,
+    narrowAspectMax: 0.7,
     near: 0.1,
     far: 100,
     position: {
       x: 0,
-      y: 15,
-      z: 15,
+      y: 13.2,
+      z: 13.2,
+    },
+    narrowPosition: {
+      x: 0,
+      y: 16,
+      z: 16,
     },
   },
   ocean: {
-    radius: 11.5,
+    radius: 9.5,
     height: 0.08,
     y: -0.5,
     segments: 96,
@@ -199,14 +206,14 @@ export const BOARD_PLACEHOLDER = {
     scaleZ: 0.82,
   },
   spaces: {
-    radius: 0.3,
+    radius: 0.34,
     height: 0.14,
     segments: 28,
     y: 0.38,
   },
   player: {
-    radius: 0.18,
-    height: 0.52,
+    radius: 0.21,
+    height: 0.58,
     segments: 24,
     y: 0.86,
     stepMs: 180,
@@ -230,7 +237,7 @@ export const BOARD_PLACEHOLDER = {
     y: 0.18,
   },
   connections: {
-    radius: 0.055,
+    radius: 0.075,
     y: 0.34,
   },
   rim: {

@@ -367,8 +367,17 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     const { width, height } = container.getBoundingClientRect();
     const safeWidth = Math.max(width, 1);
     const safeHeight = Math.max(height, 1);
+    const isNarrowView = safeWidth / safeHeight < BOARD_PLACEHOLDER.camera.narrowAspectMax;
+    const cameraPosition = isNarrowView
+      ? BOARD_PLACEHOLDER.camera.narrowPosition
+      : BOARD_PLACEHOLDER.camera.position;
 
+    camera.fov = isNarrowView
+      ? BOARD_PLACEHOLDER.camera.narrowFov
+      : BOARD_PLACEHOLDER.camera.fov;
     camera.aspect = safeWidth / safeHeight;
+    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
     renderer.setSize(safeWidth, safeHeight, false);
   };

@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+type CanvasCrop = {
+  leftRatio: number;
+  topRatio: number;
+  widthRatio: number;
+  heightRatio: number;
+};
+
 test("board opens, renders, and rolls", async ({ page }) => {
   const consoleErrors: string[] = [];
   const runtimeErrors: string[] = [];
@@ -31,7 +38,22 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(canvasBox?.width ?? 0).toBeGreaterThan(300);
   expect(canvasBox?.height ?? 0).toBeGreaterThan(300);
 
-  const canvasMetrics = await page.locator("canvas").evaluate((canvas) => {
+  const viewport = page.viewportSize();
+  const isNarrowViewport = viewport !== null && viewport.width <= 480;
+  const routeCrop: CanvasCrop = isNarrowViewport
+    ? {
+        leftRatio: 0.02,
+        topRatio: 0.43,
+        widthRatio: 0.96,
+        heightRatio: 0.32,
+      }
+    : {
+        leftRatio: 0.24,
+        topRatio: 0.3,
+        widthRatio: 0.52,
+        heightRatio: 0.46,
+      };
+  const canvasMetrics = await page.locator("canvas").evaluate((canvas, crop) => {
     const source = canvas as HTMLCanvasElement;
     const sample = document.createElement("canvas");
     const context = sample.getContext("2d", { willReadFrequently: true });
@@ -41,19 +63,36 @@ test("board opens, renders, and rolls", async ({ page }) => {
         brightPixels: 0,
         goldPixels: 0,
         coralPixels: 0,
+        inkPixels: 0,
         colorBuckets: 0,
       };
     }
 
-    sample.width = source.width;
-    sample.height = source.height;
-    context.drawImage(source, 0, 0);
+    const cropX = Math.floor(source.width * crop.leftRatio);
+    const cropY = Math.floor(source.height * crop.topRatio);
+    const cropWidth = Math.floor(source.width * crop.widthRatio);
+    const cropHeight = Math.floor(source.height * crop.heightRatio);
+
+    sample.width = cropWidth;
+    sample.height = cropHeight;
+    context.drawImage(
+      source,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      cropWidth,
+      cropHeight,
+    );
 
     const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
     const colors = new Set<string>();
     let brightPixels = 0;
     let goldPixels = 0;
     let coralPixels = 0;
+    let inkPixels = 0;
 
     for (let index = 0; index < pixels.length; index += 64) {
       const red = pixels[index] ?? 0;
@@ -72,6 +111,10 @@ test("board opens, renders, and rolls", async ({ page }) => {
         coralPixels += 1;
       }
 
+      if (red < 55 && green < 55 && blue < 55) {
+        inkPixels += 1;
+      }
+
       colors.add(`${red >> 4}:${green >> 4}:${blue >> 4}`);
     }
 
@@ -79,20 +122,21 @@ test("board opens, renders, and rolls", async ({ page }) => {
       brightPixels,
       goldPixels,
       coralPixels,
+      inkPixels,
       colorBuckets: colors.size,
     };
-  });
+  }, routeCrop);
 
-  expect(canvasMetrics.colorBuckets).toBeGreaterThan(40);
-  expect(canvasMetrics.brightPixels).toBeGreaterThan(100);
-  expect(canvasMetrics.goldPixels + canvasMetrics.coralPixels).toBeGreaterThan(40);
+  expect(canvasMetrics.colorBuckets).toBeGreaterThan(30);
+  expect(canvasMetrics.brightPixels).toBeGreaterThan(80);
+  expect(canvasMetrics.goldPixels + canvasMetrics.coralPixels).toBeGreaterThan(55);
+  expect(canvasMetrics.inkPixels).toBeGreaterThan(35);
 
   const rollButton = page.getByTestId("board-roll");
 
   await expect(rollButton).toBeVisible();
   await expect(rollButton).toBeEnabled();
 
-  const viewport = page.viewportSize();
   const regionKeyBox = await page.locator(".board-region-panel").boundingBox();
 
   if (viewport !== null && viewport.width <= 480) {
