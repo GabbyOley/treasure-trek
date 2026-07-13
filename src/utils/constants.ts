@@ -42,6 +42,14 @@ export const EVENT_COIN_REWARD = 20;
 
 export const CARD_FIXED_MOVE_STEPS = 2;
 
+export const MINI_QUEST_SMALL_COIN_REWARD = 10;
+
+export const MINI_QUEST_MEDIUM_COIN_REWARD = 20;
+
+export const MINI_QUEST_LARGE_COIN_REWARD = 40;
+
+export const MINI_QUEST_COIN_LOSS = 10;
+
 export const MAX_TREASURE_HAND_SIZE = 3;
 
 export const TREASURE_RESALE_VALUES = {
