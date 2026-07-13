@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   COIN_SPACE_REWARD,
   DEFAULT_PLAYER_COUNT,
+  EVENT_COIN_REWARD,
   FIRST_PLAYER_INDEX,
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   TITLE_SCREEN_DIE_SIDES,
+  TRAP_COIN_LOSS,
   TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
@@ -18,6 +20,7 @@ import {
 } from "../state";
 import type { TreasureCardId } from "../treasureCards";
 import { TREASURE_CARDS } from "../treasureCards";
+import { EVENT_CARDS, TRAP_CARDS } from "../trapEventCards";
 
 function collectRolls(state: GameState, rollCount: number): number[] {
   const rolls: number[] = [];
@@ -42,9 +45,45 @@ function createBoardStateAt(spaceId: string, seed: number): GameState {
         ? {
             ...player,
             positionId: spaceId,
+            pathHistory:
+              spaceId === START_SPACE_ID ? [START_SPACE_ID] : [START_SPACE_ID, spaceId],
           }
         : player,
     ),
+  };
+}
+
+function createBoardStateWithPath(
+  pathHistory: string[],
+  seed: number,
+): GameState {
+  const boardState = applyMove(createInitialGameState(), { type: "ENTER_BOARD" });
+  const positionId = pathHistory[pathHistory.length - 1] ?? START_SPACE_ID;
+
+  return {
+    ...boardState,
+    seed,
+    players: boardState.players.map((player, index) =>
+      index === boardState.currentPlayerIndex
+        ? {
+            ...player,
+            positionId,
+            pathHistory,
+          }
+        : player,
+    ),
+  };
+}
+
+function createForkChoiceState(seed: number): GameState {
+  return {
+    ...createBoardStateWithPath(
+      ["start", "camp-coin", "camp-blank", "camp-event", "camp-fork"],
+      seed,
+    ),
+    phase: "choosingBranch",
+    pendingMovement: 1,
+    availableBranchSpaceIds: ["field-entry", "cave-mouth"],
   };
 }
 
@@ -81,6 +120,7 @@ describe("game state", () => {
           id: "player-1",
           name: "Player 1",
           positionId: START_SPACE_ID,
+          pathHistory: [START_SPACE_ID],
           coins: INITIAL_PLAYER_COINS,
           treasureHand: [],
         },
@@ -88,6 +128,7 @@ describe("game state", () => {
           id: "player-2",
           name: "Player 2",
           positionId: START_SPACE_ID,
+          pathHistory: [START_SPACE_ID],
           coins: INITIAL_PLAYER_COINS,
           treasureHand: [],
         },
@@ -96,9 +137,11 @@ describe("game state", () => {
       availableBranchSpaceIds: [],
       movementPath: [],
       movingPlayerIndex: FIRST_PLAYER_INDEX,
+      movementPurpose: "turn",
       lastRollSource: null,
       lastTurnSummary: null,
       lastLandingEffect: null,
+      pendingLandingEffect: null,
     });
   });
 
@@ -140,6 +183,21 @@ describe("game state", () => {
       { id: "shovel", name: "Shovel", resaleValue: TREASURE_RESALE_VALUES.shovel },
       { id: "crab", name: "Crab", resaleValue: TREASURE_RESALE_VALUES.crab },
       { id: "whistle", name: "Whistle", resaleValue: TREASURE_RESALE_VALUES.whistle },
+    ]);
+  });
+
+  it("Trap and Event card catalogs include the v1 cards", () => {
+    expect(TRAP_CARDS.map((card) => card.id)).toEqual([
+      "safe",
+      "lose-20-coins",
+      "move-back-2",
+      "roll-and-move-back",
+    ]);
+    expect(EVENT_CARDS.map((card) => card.id)).toEqual([
+      "found-coins",
+      "move-forward-2",
+      "roll-again",
+      "draw-treasure",
     ]);
   });
 
@@ -519,32 +577,184 @@ describe("game state", () => {
     });
   });
 
-  it.each([
-    ["trap", "camp-fork", "Trap space: trap effect coming soon."],
-    ["event", "camp-blank", "Event space: event effect coming soon."],
-    ["action", "camp-event", "Action space: landmark interaction coming soon."],
-  ])(
-    "landing on %s produces a placeholder landing result without changing coins",
-    (_spaceType, startSpaceId, expectedMessage) => {
-      const initialState = createBoardStateAt(startSpaceId, 7);
-      const nextState =
-        startSpaceId === "camp-fork"
-          ? applyMove(
-              {
-                ...initialState,
-                phase: "choosingBranch",
-                pendingMovement: 1,
-                availableBranchSpaceIds: ["field-entry", "cave-mouth"],
-              },
-              { type: "CHOOSE_BRANCH", spaceId: "cave-mouth" },
-            )
-          : applyMove(initialState, { type: "ROLL_DIE" });
+  it("landing on Action produces a placeholder landing result without changing coins", () => {
+    const nextState = applyMove(createBoardStateAt("camp-event", 7), {
+      type: "ROLL_DIE",
+    });
 
-      expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
-      expect(nextState.lastLandingEffect?.message).toBe(expectedMessage);
-      expect(nextState.lastLandingEffect?.coinDelta).toBe(0);
-    },
-  );
+    expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
+    expect(nextState.lastLandingEffect?.message).toBe(
+      "Action space: landmark interaction coming soon.",
+    );
+    expect(nextState.lastLandingEffect?.coinDelta).toBe(0);
+  });
+
+  it("Trap draws are deterministic", () => {
+    const drawTrap = (): GameState =>
+      applyMove(createForkChoiceState(12), {
+        type: "CHOOSE_BRANCH",
+        spaceId: "cave-mouth",
+      });
+    const firstResult = drawTrap();
+    const secondResult = drawTrap();
+
+    expect(firstResult.lastLandingEffect?.trapCardId).toBe("lose-20-coins");
+    expect(firstResult.lastLandingEffect?.trapCardId).toBe(
+      secondResult.lastLandingEffect?.trapCardId,
+    );
+    expect(firstResult.lastLandingEffect?.message).toBe(
+      secondResult.lastLandingEffect?.message,
+    );
+  });
+
+  it("Event draws are deterministic", () => {
+    const drawEvent = (): GameState =>
+      applyMove(createBoardStateAt("camp-blank", 7), { type: "ROLL_DIE" });
+    const firstResult = drawEvent();
+    const secondResult = drawEvent();
+
+    expect(firstResult.lastLandingEffect?.eventCardId).toBe("found-coins");
+    expect(firstResult.lastLandingEffect?.eventCardId).toBe(
+      secondResult.lastLandingEffect?.eventCardId,
+    );
+    expect(firstResult.lastLandingEffect?.message).toBe(
+      secondResult.lastLandingEffect?.message,
+    );
+  });
+
+  it("Safe Trap does nothing", () => {
+    const nextState = applyMove(createForkChoiceState(7), {
+      type: "CHOOSE_BRANCH",
+      spaceId: "cave-mouth",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      spaceType: "trap",
+      trapCardId: "safe",
+      coinDelta: 0,
+      message: "Trap: Safe. No effect.",
+    });
+    expect(nextState.players[0]?.coins).toBe(INITIAL_PLAYER_COINS);
+  });
+
+  it("Lose 20 Coins cannot make coins negative", () => {
+    const nextState = applyMove(createForkChoiceState(12), {
+      type: "CHOOSE_BRANCH",
+      spaceId: "cave-mouth",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      trapCardId: "lose-20-coins",
+      coinDelta: -TRAP_COIN_LOSS,
+    });
+    expect(nextState.players[0]?.coins).toBe(0);
+  });
+
+  it("Found Coins adds 20 coins", () => {
+    const nextState = applyMove(createBoardStateAt("camp-blank", 7), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      eventCardId: "found-coins",
+      coinDelta: EVENT_COIN_REWARD,
+    });
+    expect(nextState.players[0]?.coins).toBe(EVENT_COIN_REWARD);
+  });
+
+  it("Draw Treasure uses the existing Treasure hand rules", () => {
+    const nextState = applyMove(createBoardStateAt("camp-blank", 39), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      eventCardId: "draw-treasure",
+      treasureHandFull: false,
+    });
+    expect(nextState.players[0]?.treasureHand).toHaveLength(1);
+    expect(nextState.players[1]?.treasureHand).toEqual([]);
+  });
+
+  it("Draw Treasure respects a full Treasure hand", () => {
+    const fullHandState = createBoardStateWithActiveHand(
+      ["compass", "shop", "aid"],
+      39,
+      "camp-blank",
+    );
+    const nextState = applyMove(fullHandState, { type: "ROLL_DIE" });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      eventCardId: "draw-treasure",
+      treasureHandFull: true,
+    });
+    expect(nextState.players[0]?.treasureHand).toEqual(["compass", "shop", "aid"]);
+  });
+
+  it("Roll Again consumes seeded RNG and moves forward", () => {
+    const nextState = applyMove(createBoardStateAt("field-action", 8), {
+      type: "ROLL_DIE",
+    });
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      eventCardId: "roll-again",
+      effectRoll: 2,
+    });
+    expect(nextState.seed).not.toBe(8);
+    expect(nextState.players[0]?.positionId).toBe("field-blank");
+  });
+
+  it("Roll and Move Back consumes seeded RNG and moves backward", () => {
+    const nextState = applyMove(
+      createForkChoiceState(4),
+      { type: "CHOOSE_BRANCH", spaceId: "cave-mouth" },
+    );
+
+    expect(nextState.lastLandingEffect).toMatchObject({
+      trapCardId: "roll-and-move-back",
+      effectRoll: 2,
+    });
+    expect(nextState.seed).not.toBe(4);
+    expect(nextState.players[0]?.positionId).toBe("camp-event");
+  });
+
+  it("Move Back 2 moves backward along path history when possible", () => {
+    const nextState = applyMove(
+      createForkChoiceState(1),
+      { type: "CHOOSE_BRANCH", spaceId: "cave-mouth" },
+    );
+
+    expect(nextState.lastLandingEffect?.trapCardId).toBe("move-back-2");
+    expect(nextState.players[0]?.positionId).toBe("camp-event");
+    expect(nextState.players[0]?.pathHistory).toEqual([
+      "start",
+      "camp-coin",
+      "camp-blank",
+      "camp-event",
+    ]);
+  });
+
+  it("Move Forward 2 card movement can pause at a branch and continue after a legal choice", () => {
+    const branchState = applyMove(createBoardStateAt("camp-blank", 19), {
+      type: "ROLL_DIE",
+    });
+
+    expect(branchState.lastLandingEffect).toMatchObject({
+      eventCardId: "move-forward-2",
+    });
+    expect(branchState.phase).toBe("choosingBranch");
+    expect(branchState.pendingMovement).toBe(1);
+    expect(branchState.currentPlayerIndex).toBe(0);
+    expect(branchState.availableBranchSpaceIds).toEqual(["field-entry", "cave-mouth"]);
+
+    const nextState = applyMove(branchState, {
+      type: "CHOOSE_BRANCH",
+      spaceId: "field-entry",
+    });
+
+    expect(nextState.phase).toBe("waitingToRoll");
+    expect(nextState.players[0]?.positionId).toBe("field-entry");
+    expect(nextState.currentPlayerIndex).toBe(1);
+  });
 
   it("landing on Treasure adds one card to only the active player's hand", () => {
     const nextState = applyMove(createBoardStateAt("cave-trap", 7), {
@@ -643,7 +853,7 @@ describe("game state", () => {
     expect(nextState.lastLandingEffect).toMatchObject({
       spaceId: "cave-mouth",
       spaceType: "trap",
-      message: "Trap space: trap effect coming soon.",
+      trapCardId: "lose-20-coins",
     });
   });
 
