@@ -25,14 +25,16 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await expect(page.getByTestId("board-screen")).toBeVisible();
   await expect(page.getByTestId("html-board")).toBeVisible();
-  await expect(page.getByTestId("html-board-debug")).toContainText(
-    "HTML board rendered: 66 spaces, 2 players",
-  );
   await expect(page.getByTestId("board-space")).toHaveCount(66);
   await expect(page.getByTestId("player-token")).toHaveCount(2);
+  await expect(page.locator('[data-space-id="start"]')).toBeVisible();
+  await expect(page.locator('[data-space-id="finish"]')).toBeVisible();
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
+  const statusBox = await page.locator(".board-status-panel").boundingBox();
   const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
+  const startBox = await page.locator('[data-space-id="start"]').boundingBox();
+  const finishBox = await page.locator('[data-space-id="finish"]').boundingBox();
   const playerTokenBoxes = await page.getByTestId("player-token").evaluateAll((tokens) =>
     tokens.map((token) => token.getBoundingClientRect()).map((box) => ({
       left: box.left,
@@ -47,6 +49,8 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(boardBox?.height ?? 0).toBeGreaterThan(300);
   expect(firstSpaceBox?.width ?? 0).toBeGreaterThanOrEqual(20);
   expect(firstSpaceBox?.height ?? 0).toBeGreaterThanOrEqual(20);
+  expect(startBox?.width ?? 0).toBeGreaterThanOrEqual(20);
+  expect(finishBox?.width ?? 0).toBeGreaterThanOrEqual(20);
   expect(playerTokenBoxes).toHaveLength(2);
 
   if (viewport !== null && firstSpaceBox !== null) {
@@ -54,6 +58,19 @@ test("board opens, renders, and rolls", async ({ page }) => {
     expect(firstSpaceBox.y).toBeGreaterThanOrEqual(0);
     expect(firstSpaceBox.x + firstSpaceBox.width).toBeLessThanOrEqual(viewport.width);
     expect(firstSpaceBox.y + firstSpaceBox.height).toBeLessThanOrEqual(viewport.height);
+  }
+
+  if (viewport !== null && startBox !== null && finishBox !== null) {
+    for (const box of [startBox, finishBox]) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    }
+  }
+
+  if (viewport !== null && viewport.width > 480 && boardBox !== null && statusBox !== null) {
+    expect(boardBox.x + boardBox.width).toBeLessThanOrEqual(statusBox.x);
   }
 
   playerTokenBoxes.forEach((box) => {
@@ -102,9 +119,9 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
   await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
-  await expect(page.getByTestId("board-debug")).toContainText("Route tile meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("HTML spaces rendered");
   await expect(page.getByTestId("board-debug")).toContainText("66");
-  await expect(page.getByTestId("board-debug")).toContainText("Player piece meshes");
+  await expect(page.getByTestId("board-debug")).toContainText("HTML players rendered");
   await expect(page.getByTestId("board-debug")).toContainText("2");
   await expect(page.getByTestId("board-debug")).toContainText("Route anchors on screen");
 

@@ -18,7 +18,7 @@ import {
   type Move,
 } from "../game/state";
 import { getTreasureCardName } from "../game/treasureCards";
-import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
+import { BOARD_PLACEHOLDER, HTML_BOARD_LAYOUT, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
@@ -905,15 +905,6 @@ function getBoardPositionMetrics(): {
 }
 
 function renderHtmlBoard(state: GameState): string {
-  const bounds = getBoardPositionMetrics();
-  const padding = 0.8;
-  const boardWidth = bounds.width + padding * 2;
-  const boardDepth = bounds.depth + padding * 2;
-  const project = (position: { x: number; z: number }): { x: number; y: number } => ({
-    x: ((position.x - bounds.minX + padding) / boardWidth) * 100,
-    y: ((position.z - bounds.minZ + padding) / boardDepth) * 100,
-  });
-
   const connections = BOARD_SPACES.flatMap((space) =>
     space.nextSpaceIds.flatMap((nextSpaceId) => {
       const nextSpace = getBoardSpace(nextSpaceId);
@@ -922,15 +913,17 @@ function renderHtmlBoard(state: GameState): string {
         return [];
       }
 
-      const start = project(space.position);
-      const end = project(nextSpace.position);
+      const start = getHtmlBoardPoint(space.id);
+      const end = getHtmlBoardPoint(nextSpace.id);
       const width = Math.hypot(end.x - start.x, end.y - start.y);
       const angle = Math.atan2(end.y - start.y, end.x - start.x);
+      const isBranch = space.nextSpaceIds.length > 1;
+      const isLong = width > 14;
 
       return [
         `
           <div
-            class="html-board-connection"
+            class="html-board-connection ${isBranch ? "is-branch" : ""} ${isLong ? "is-long" : ""}"
             data-testid="board-connection"
             style="left: ${start.x}%; top: ${start.y}%; width: ${width}%; transform: rotate(${angle}rad);"
           ></div>
@@ -939,11 +932,10 @@ function renderHtmlBoard(state: GameState): string {
     }),
   ).join("");
   const tiles = BOARD_SPACES.map((space) => {
-    const point = project(space.position);
+    const point = getHtmlBoardPoint(space.id);
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
     const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
-    const label =
-      space.id === START_SPACE_ID ? "Start" : space.id === "finish" ? "Finish" : "";
+    const label = getHtmlBoardLabel(space.id);
 
     return `
       <div
@@ -967,8 +959,9 @@ function renderHtmlBoard(state: GameState): string {
         return "";
       }
 
-      const point = project(space.position);
-      const offset = index === 0 ? -12 : 12;
+      const point = getHtmlBoardPoint(space.id);
+      const offsetX = index === 0 ? -10 : 10;
+      const offsetY = index === 0 ? 12 : -12;
 
       return `
         <div
@@ -976,14 +969,13 @@ function renderHtmlBoard(state: GameState): string {
           data-testid="player-token"
           data-player-index="${index}"
           title="${player.name} on ${space.name}"
-          style="left: ${point.x}%; top: ${point.y}%; --token-offset-x: ${offset}px;"
+          style="left: ${point.x}%; top: ${point.y}%; --token-offset-x: ${offsetX}px; --token-offset-y: ${offsetY}px;"
         >
           ${index + 1}
         </div>
       `;
     })
     .join("");
-  const debugText = `HTML board rendered: ${BOARD_SPACES.length} spaces, ${state.players.length} players`;
 
   if (BOARD_SPACES.length === 0) {
     return `
@@ -995,13 +987,37 @@ function renderHtmlBoard(state: GameState): string {
   }
 
   return `
-    <p class="html-board-debug" data-testid="html-board-debug">${debugText}</p>
     <div class="html-board-surface" data-testid="html-board-surface">
       ${connections}
       ${tiles}
       ${players}
     </div>
   `;
+}
+
+function getHtmlBoardPoint(spaceId: string): { x: number; y: number } {
+  const layoutKey = spaceId.replace(/-([a-z0-9])/g, (_, character: string) =>
+    character.toUpperCase(),
+  ) as keyof typeof HTML_BOARD_LAYOUT;
+
+  return HTML_BOARD_LAYOUT[layoutKey] ?? { x: 50, y: 50 };
+}
+
+function getHtmlBoardLabel(spaceId: string): string {
+  switch (spaceId) {
+    case START_SPACE_ID:
+      return "Start";
+    case "final-choice":
+      return "Choice";
+    case "river-1":
+      return "River";
+    case "shipwreck-1":
+      return "Shipwreck";
+    case "finish":
+      return "Finish";
+    default:
+      return "";
+  }
 }
 
 function getProjectedRouteBounds(
