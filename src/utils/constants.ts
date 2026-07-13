@@ -1,6 +1,7 @@
 export const PALETTE = {
   midnight: 0x0b2239,
   deepSea: 0x12395b,
+  lagoon: 0x1f7894,
   tide: 0x2b6c7e,
   jungle: 0x2f5d50,
   gold: 0xd2a03a,
@@ -14,6 +15,7 @@ export const PALETTE = {
 export const CSS_PALETTE = {
   midnight: "#0b2239",
   deepSea: "#12395b",
+  lagoon: "#1f7894",
   tide: "#2b6c7e",
   jungle: "#2f5d50",
   gold: "#d2a03a",
@@ -171,11 +173,13 @@ export const BOARD_PLACEHOLDER = {
       z: 15,
     },
   },
-  table: {
-    width: 18,
-    depth: 13,
-    height: 0.35,
-    y: -0.34,
+  ocean: {
+    radius: 11.5,
+    height: 0.08,
+    y: -0.5,
+    segments: 96,
+    scaleX: 1.12,
+    scaleZ: 0.86,
   },
   island: {
     radius: 5.7,
@@ -263,9 +267,9 @@ export const BOARD_PLACEHOLDER = {
     trapY: Math.PI / 4,
   },
   materials: {
-    table: {
-      roughness: 0.72,
-      metalness: 0.05,
+    ocean: {
+      roughness: 0.58,
+      metalness: 0.02,
     },
     island: {
       roughness: 0.86,

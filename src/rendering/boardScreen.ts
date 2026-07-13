@@ -479,21 +479,23 @@ function createChoiceHighlight(space: BoardSpace): THREE.Mesh {
 function createBoardGroup(): THREE.Group {
   const group = new THREE.Group();
 
-  const table = new THREE.Mesh(
-    new THREE.BoxGeometry(
-      BOARD_PLACEHOLDER.table.width,
-      BOARD_PLACEHOLDER.table.height,
-      BOARD_PLACEHOLDER.table.depth,
+  const ocean = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      BOARD_PLACEHOLDER.ocean.radius,
+      BOARD_PLACEHOLDER.ocean.radius,
+      BOARD_PLACEHOLDER.ocean.height,
+      BOARD_PLACEHOLDER.ocean.segments,
     ),
     new THREE.MeshStandardMaterial({
-      color: PALETTE.ink,
-      roughness: BOARD_PLACEHOLDER.materials.table.roughness,
-      metalness: BOARD_PLACEHOLDER.materials.table.metalness,
+      color: PALETTE.lagoon,
+      roughness: BOARD_PLACEHOLDER.materials.ocean.roughness,
+      metalness: BOARD_PLACEHOLDER.materials.ocean.metalness,
     }),
   );
-  table.position.y = BOARD_PLACEHOLDER.table.y;
-  table.receiveShadow = true;
-  group.add(table);
+  ocean.position.y = BOARD_PLACEHOLDER.ocean.y;
+  ocean.scale.set(BOARD_PLACEHOLDER.ocean.scaleX, 1, BOARD_PLACEHOLDER.ocean.scaleZ);
+  ocean.receiveShadow = true;
+  group.add(ocean);
 
   const island = new THREE.Mesh(
     new THREE.CylinderGeometry(
