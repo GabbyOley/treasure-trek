@@ -570,7 +570,7 @@ function createBoardGroup(): THREE.Group {
       BOARD_PLACEHOLDER.table.depth,
     ),
     new THREE.MeshStandardMaterial({
-      color: PALETTE.ink,
+      color: PALETTE.moss,
       roughness: BOARD_PLACEHOLDER.materials.table.roughness,
       metalness: BOARD_PLACEHOLDER.materials.table.metalness,
     }),
