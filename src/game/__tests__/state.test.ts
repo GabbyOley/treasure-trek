@@ -7,6 +7,7 @@ import {
   INITIAL_PLAYER_COINS,
   INITIAL_RNG_SEED,
   TITLE_SCREEN_DIE_SIDES,
+  TREASURE_RESALE_VALUES,
 } from "../../utils/constants";
 import { START_SPACE_ID } from "../board";
 import { applyMove, createInitialGameState, type GameState } from "../state";
@@ -101,13 +102,17 @@ describe("game state", () => {
 
   it("Treasure card catalog includes the 7 confirmed cards and resale values", () => {
     expect(TREASURE_CARDS).toEqual([
-      { id: "compass", name: "Compass", resaleValue: 10 },
-      { id: "shop", name: "Shop", resaleValue: 10 },
-      { id: "aid", name: "Aid", resaleValue: 20 },
-      { id: "time-machine", name: "Time Machine", resaleValue: 20 },
-      { id: "shovel", name: "Shovel", resaleValue: 20 },
-      { id: "crab", name: "Crab", resaleValue: 30 },
-      { id: "whistle", name: "Whistle", resaleValue: 50 },
+      { id: "compass", name: "Compass", resaleValue: TREASURE_RESALE_VALUES.compass },
+      { id: "shop", name: "Shop", resaleValue: TREASURE_RESALE_VALUES.shop },
+      { id: "aid", name: "Aid", resaleValue: TREASURE_RESALE_VALUES.aid },
+      {
+        id: "time-machine",
+        name: "Time Machine",
+        resaleValue: TREASURE_RESALE_VALUES.timeMachine,
+      },
+      { id: "shovel", name: "Shovel", resaleValue: TREASURE_RESALE_VALUES.shovel },
+      { id: "crab", name: "Crab", resaleValue: TREASURE_RESALE_VALUES.crab },
+      { id: "whistle", name: "Whistle", resaleValue: TREASURE_RESALE_VALUES.whistle },
     ]);
   });
 
