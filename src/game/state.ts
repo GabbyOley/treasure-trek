@@ -456,7 +456,7 @@ function applyLandingEffect(
       phase: "moving",
       pendingMovement: steps,
       availableBranchSpaceIds: [],
-      movementPath: [],
+      movementPath: [...effectState.movementPath],
       movementPurpose: "cardEffect",
       pendingLandingEffect: landingEffect,
     });

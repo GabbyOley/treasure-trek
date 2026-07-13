@@ -1,3 +1,7 @@
+import {
+  CARD_FIXED_MOVE_STEPS,
+  TRAP_COIN_LOSS,
+} from "../utils/constants";
 import { stepSeededRng } from "./rng";
 
 export type TrapCardId =
@@ -39,11 +43,11 @@ export const TRAP_CARDS = [
   },
   {
     id: "lose-20-coins",
-    name: "Lose 20 Coins",
+    name: `Lose ${TRAP_COIN_LOSS} Coins`,
   },
   {
     id: "move-back-2",
-    name: "Move Back 2",
+    name: `Move Back ${CARD_FIXED_MOVE_STEPS}`,
   },
   {
     id: "roll-and-move-back",
@@ -58,7 +62,7 @@ export const EVENT_CARDS = [
   },
   {
     id: "move-forward-2",
-    name: "Move Forward 2",
+    name: `Move Forward ${CARD_FIXED_MOVE_STEPS}`,
   },
   {
     id: "roll-again",
