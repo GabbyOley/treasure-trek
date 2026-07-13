@@ -105,11 +105,6 @@ export function renderBoardScreen(
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status data-testid="board-status"></p>
           <p class="board-roll-text" data-board-roll data-testid="board-roll-text"></p>
-          <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
-          <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
-          <div class="board-choice-list" data-board-choices></div>
-          <div class="shop-action-list" data-shop-actions></div>
-          <div class="game-over-panel-wrap" data-game-over></div>
           <button
             type="button"
             class="board-roll-button"
@@ -119,6 +114,11 @@ export function renderBoardScreen(
           >
             Roll
           </button>
+          <div class="player-coin-list" data-player-coins aria-label="Player coin totals"></div>
+          <div class="player-hand-list" data-player-hands aria-label="Player Treasure hands"></div>
+          <div class="board-choice-list" data-board-choices></div>
+          <div class="shop-action-list" data-shop-actions></div>
+          <div class="game-over-panel-wrap" data-game-over></div>
         </section>
         <aside class="board-region-panel" aria-label="Board regions">
           ${renderRegionSummaries()}

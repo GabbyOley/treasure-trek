@@ -25,5 +25,16 @@ export default defineConfig({
         channel: process.env.CI ? undefined : "chrome",
       },
     },
+    {
+      name: "mobile-375",
+      use: {
+        ...devices["Pixel 5"],
+        viewport: {
+          width: 375,
+          height: 812,
+        },
+        channel: process.env.CI ? undefined : "chrome",
+      },
+    },
   ],
 });

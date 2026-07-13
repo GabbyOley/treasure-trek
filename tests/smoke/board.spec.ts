@@ -31,37 +31,73 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(canvasBox?.width ?? 0).toBeGreaterThan(300);
   expect(canvasBox?.height ?? 0).toBeGreaterThan(300);
 
-  const renderedPixelCount = await page.locator("canvas").evaluate((canvas) => {
+  const canvasMetrics = await page.locator("canvas").evaluate((canvas) => {
     const source = canvas as HTMLCanvasElement;
-    const sampleWidth = Math.min(source.width, 160);
-    const sampleHeight = Math.min(source.height, 120);
     const sample = document.createElement("canvas");
     const context = sample.getContext("2d", { willReadFrequently: true });
 
-    if (context === null || sampleWidth === 0 || sampleHeight === 0) {
-      return 0;
+    if (context === null || source.width === 0 || source.height === 0) {
+      return {
+        brightPixels: 0,
+        goldPixels: 0,
+        coralPixels: 0,
+        colorBuckets: 0,
+      };
     }
 
-    sample.width = sampleWidth;
-    sample.height = sampleHeight;
-    context.drawImage(source, 0, 0, sampleWidth, sampleHeight);
+    sample.width = source.width;
+    sample.height = source.height;
+    context.drawImage(source, 0, 0);
 
-    const pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+    const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
     const colors = new Set<string>();
+    let brightPixels = 0;
+    let goldPixels = 0;
+    let coralPixels = 0;
 
-    for (let index = 0; index < pixels.length; index += 16) {
-      colors.add(`${pixels[index]}:${pixels[index + 1]}:${pixels[index + 2]}`);
+    for (let index = 0; index < pixels.length; index += 64) {
+      const red = pixels[index] ?? 0;
+      const green = pixels[index + 1] ?? 0;
+      const blue = pixels[index + 2] ?? 0;
+
+      if (red + green + blue > 330) {
+        brightPixels += 1;
+      }
+
+      if (red > 140 && green > 90 && blue < 110) {
+        goldPixels += 1;
+      }
+
+      if (red > 120 && green < 130 && blue < 120) {
+        coralPixels += 1;
+      }
+
+      colors.add(`${red >> 4}:${green >> 4}:${blue >> 4}`);
     }
 
-    return colors.size;
+    return {
+      brightPixels,
+      goldPixels,
+      coralPixels,
+      colorBuckets: colors.size,
+    };
   });
 
-  expect(renderedPixelCount).toBeGreaterThan(8);
+  expect(canvasMetrics.colorBuckets).toBeGreaterThan(40);
+  expect(canvasMetrics.brightPixels).toBeGreaterThan(100);
+  expect(canvasMetrics.goldPixels + canvasMetrics.coralPixels).toBeGreaterThan(40);
 
   const rollButton = page.getByTestId("board-roll");
 
   await expect(rollButton).toBeVisible();
   await expect(rollButton).toBeEnabled();
+
+  const viewport = page.viewportSize();
+  const regionKeyBox = await page.locator(".board-region-panel").boundingBox();
+
+  if (viewport !== null && viewport.width <= 480) {
+    expect(regionKeyBox?.y ?? 0).toBeGreaterThan(viewport.height * 0.6);
+  }
 
   await rollButton.click();
 
