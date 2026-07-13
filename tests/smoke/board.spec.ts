@@ -25,6 +25,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await expect(page.getByTestId("board-screen")).toBeVisible();
   await expect(page.getByTestId("board-canvas")).toBeVisible();
+  await expect(page.getByTestId("board-visibility-layer")).toBeVisible();
 
   const canvasBox = await page.getByTestId("board-canvas").boundingBox();
 
@@ -86,6 +87,15 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(canvasMetrics.colorBuckets).toBeGreaterThan(40);
   expect(canvasMetrics.brightPixels).toBeGreaterThan(100);
   expect(canvasMetrics.goldPixels + canvasMetrics.coralPixels).toBeGreaterThan(40);
+  await expect(page.locator(".board-visibility-tile")).toHaveCount(66);
+  await expect(page.locator(".board-visibility-player")).toHaveCount(2);
+
+  const visibilityLayerBox = await page
+    .getByTestId("board-visibility-layer")
+    .boundingBox();
+
+  expect(visibilityLayerBox?.width ?? 0).toBeGreaterThan(100);
+  expect(visibilityLayerBox?.height ?? 0).toBeGreaterThan(100);
 
   const rollButton = page.getByTestId("board-roll");
 

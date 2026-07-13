@@ -165,6 +165,10 @@ export const BOARD_PLACEHOLDER = {
     fov: 46,
     near: 0.1,
     far: 100,
+    fitPadding: 2.2,
+    fitDistanceScale: 1.3,
+    fitMinDistance: 12.5,
+    fitMaxDistance: 22,
     position: {
       x: 0,
       y: 15,

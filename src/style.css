@@ -310,12 +310,106 @@ h1 {
   min-height: 0;
   width: 100%;
   height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 .board-canvas-wrap canvas {
   display: block;
   width: 100%;
   height: 100%;
+  position: relative;
+  z-index: 0;
+}
+
+.board-visibility-layer {
+  position: absolute;
+  left: clamp(248px, 18vw, 300px);
+  right: clamp(360px, 26vw, 390px);
+  top: clamp(112px, 15vh, 168px);
+  bottom: clamp(136px, 17vh, 164px);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+.board-visibility-links {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.board-visibility-links line {
+  stroke: rgba(255, 247, 232, 0.58);
+  stroke-width: 0.34;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.board-visibility-tile,
+.board-visibility-player {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+}
+
+.board-visibility-tile {
+  width: clamp(11px, 1.1vw, 16px);
+  aspect-ratio: 1;
+  border: 2px solid rgba(8, 22, 36, 0.86);
+  background: var(--color-parchment);
+  box-shadow: 0 0 0 2px rgba(255, 247, 232, 0.28);
+}
+
+.board-visibility-tile[data-space-type="coin"],
+.board-visibility-tile[data-space-type="finish"] {
+  background: var(--color-gold);
+}
+
+.board-visibility-tile[data-space-type="treasure"] {
+  background: var(--color-amber);
+}
+
+.board-visibility-tile[data-space-type="trap"] {
+  background: var(--color-coral);
+}
+
+.board-visibility-tile[data-space-type="event"] {
+  background: var(--color-tide);
+}
+
+.board-visibility-tile[data-space-type="action"] {
+  background: var(--color-mist);
+}
+
+.board-visibility-tile.is-choice {
+  box-shadow:
+    0 0 0 3px rgba(255, 247, 232, 0.72),
+    0 0 16px rgba(224, 184, 92, 0.8);
+}
+
+.board-visibility-player {
+  display: grid;
+  place-items: center;
+  width: clamp(18px, 1.6vw, 24px);
+  aspect-ratio: 1;
+  border: 2px solid rgba(8, 22, 36, 0.9);
+  background: var(--color-tide);
+  color: var(--color-mist);
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
+}
+
+.board-visibility-player[data-player-index="0"] {
+  background: var(--color-gold);
+  color: var(--color-ink);
+}
+
+.board-visibility-player.is-active {
+  box-shadow:
+    0 0 0 3px rgba(255, 247, 232, 0.68),
+    0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
 .board-status-panel {
@@ -736,6 +830,13 @@ h1 {
 
   .board-status-label {
     letter-spacing: 0.14rem;
+  }
+
+  .board-visibility-layer {
+    left: 6px;
+    right: 6px;
+    top: 48svh;
+    bottom: 108px;
   }
 
   .board-region-panel {

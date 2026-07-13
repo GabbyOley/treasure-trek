@@ -123,7 +123,14 @@ export function renderBoardScreen(
           class="board-canvas-wrap"
           data-testid="board-canvas"
           aria-label="3D Treasure Trek board placeholder"
-        ></div>
+        >
+          <div
+            class="board-visibility-layer"
+            data-board-visibility-layer
+            data-testid="board-visibility-layer"
+            aria-hidden="true"
+          ></div>
+        </div>
         <section class="board-status-panel" aria-live="polite">
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status data-testid="board-status"></p>
@@ -304,7 +311,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     BOARD_PLACEHOLDER.camera.position.y,
     BOARD_PLACEHOLDER.camera.position.z,
   );
-  camera.lookAt(0, 0, 0);
+  const cameraTarget = new THREE.Vector3();
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -318,6 +325,13 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
   renderer.domElement.setAttribute("aria-label", "3D Treasure Trek board placeholder");
   renderer.domElement.setAttribute("role", "img");
   container.append(renderer.domElement);
+  const visibilityLayer = container.querySelector<HTMLDivElement>(
+    "[data-board-visibility-layer]",
+  );
+
+  if (visibilityLayer === null) {
+    throw new Error("Board visibility layer was not created.");
+  }
 
   const board = createBoardGroup();
   const playerPieces = state.players.map((_, index) => createPlayerPiece(index));
@@ -400,6 +414,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
 
   const update = (nextState: GameState): void => {
     window.clearTimeout(movementTimer);
+    renderVisibilityLayer(visibilityLayer, nextState);
     updateActivePlayerStyles(nextState);
     updateChoiceHighlights({
       ...nextState,
@@ -422,6 +437,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
     const safeHeight = Math.max(height, 1);
 
     camera.aspect = safeWidth / safeHeight;
+    fitCameraToBoard(camera, cameraTarget, safeWidth, safeHeight);
     camera.updateProjectionMatrix();
     renderer.setSize(safeWidth, safeHeight, false);
   };
@@ -450,7 +466,9 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       cameraPosition: `${formatDebugNumber(camera.position.x)}, ${formatDebugNumber(
         camera.position.y,
       )}, ${formatDebugNumber(camera.position.z)}`,
-      cameraTarget: "0, 0, 0",
+      cameraTarget: `${formatDebugNumber(cameraTarget.x)}, ${formatDebugNumber(
+        cameraTarget.y,
+      )}, ${formatDebugNumber(cameraTarget.z)}`,
       routeTileCount: BOARD_SPACES.length,
       playerPieceCount: playerPieces.length,
       boardBounds,
@@ -529,6 +547,28 @@ function createPlayerPiece(playerIndex: number): PlayerPieceView {
     group,
     activeRing,
   };
+}
+
+function fitCameraToBoard(
+  camera: THREE.PerspectiveCamera,
+  cameraTarget: THREE.Vector3,
+  width: number,
+  height: number,
+): void {
+  const bounds = getBoardPositionMetrics();
+  const aspect = width / Math.max(height, 1);
+  const fitSpan =
+    Math.max(bounds.width / Math.max(aspect, 0.1), bounds.depth) +
+    BOARD_PLACEHOLDER.camera.fitPadding;
+  const distance = THREE.MathUtils.clamp(
+    fitSpan * BOARD_PLACEHOLDER.camera.fitDistanceScale,
+    BOARD_PLACEHOLDER.camera.fitMinDistance,
+    BOARD_PLACEHOLDER.camera.fitMaxDistance,
+  );
+
+  cameraTarget.set(bounds.centerX, 0, bounds.centerZ);
+  camera.position.set(bounds.centerX, distance, bounds.centerZ + distance);
+  camera.lookAt(cameraTarget);
 }
 
 function getPlayerColor(playerIndex: number): number {
@@ -854,12 +894,109 @@ function addSpaceMarker(group: THREE.Group, marker: SpaceStyle["marker"], index:
 }
 
 function getBoardPositionBounds(): string {
+  const bounds = getBoardPositionMetrics();
+
+  return `x ${formatDebugNumber(bounds.minX)} to ${formatDebugNumber(
+    bounds.maxX,
+  )}, z ${formatDebugNumber(bounds.minZ)} to ${formatDebugNumber(bounds.maxZ)}`;
+}
+
+function getBoardPositionMetrics(): {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  centerX: number;
+  centerZ: number;
+  width: number;
+  depth: number;
+} {
   const xs = BOARD_SPACES.map((space) => space.position.x);
   const zs = BOARD_SPACES.map((space) => space.position.z);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
 
-  return `x ${formatDebugNumber(Math.min(...xs))} to ${formatDebugNumber(
-    Math.max(...xs),
-  )}, z ${formatDebugNumber(Math.min(...zs))} to ${formatDebugNumber(Math.max(...zs))}`;
+  return {
+    minX,
+    maxX,
+    minZ,
+    maxZ,
+    centerX: (minX + maxX) / 2,
+    centerZ: (minZ + maxZ) / 2,
+    width: maxX - minX,
+    depth: maxZ - minZ,
+  };
+}
+
+function renderVisibilityLayer(layer: HTMLDivElement, state: GameState): void {
+  const bounds = getBoardPositionMetrics();
+  const project = (position: { x: number; z: number }): { x: number; y: number } => {
+    const x = ((position.x - bounds.minX) / Math.max(bounds.width, 1)) * 100;
+    const y = ((position.z - bounds.minZ) / Math.max(bounds.depth, 1)) * 100;
+
+    return {
+      x,
+      y,
+    };
+  };
+
+  const links = BOARD_SPACES.flatMap((space) =>
+    space.nextSpaceIds.flatMap((nextSpaceId) => {
+      const nextSpace = getBoardSpace(nextSpaceId);
+
+      if (nextSpace === undefined) {
+        return [];
+      }
+
+      const start = project(space.position);
+      const end = project(nextSpace.position);
+
+      return [
+        `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" />`,
+      ];
+    }),
+  ).join("");
+  const tiles = BOARD_SPACES.map((space) => {
+    const point = project(space.position);
+    const isChoice = state.availableBranchSpaceIds.includes(space.id);
+
+    return `
+      <span
+        class="board-visibility-tile ${isChoice ? "is-choice" : ""}"
+        data-space-type="${space.type}"
+        style="left: ${point.x}%; top: ${point.y}%"
+      ></span>
+    `;
+  }).join("");
+  const players = state.players
+    .map((player, index) => {
+      const space = getBoardSpace(player.positionId);
+
+      if (space === undefined) {
+        return "";
+      }
+
+      const point = project(space.position);
+
+      return `
+        <span
+          class="board-visibility-player ${index === state.currentPlayerIndex ? "is-active" : ""}"
+          data-player-index="${index}"
+          style="left: ${point.x}%; top: ${point.y}%"
+        >${index + 1}</span>
+      `;
+    })
+    .join("");
+
+  layer.innerHTML = `
+    <svg class="board-visibility-links" viewBox="0 0 100 100" preserveAspectRatio="none">
+      ${links}
+    </svg>
+    ${tiles}
+    ${players}
+  `;
 }
 
 function getProjectedRouteBounds(
