@@ -25,6 +25,9 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await expect(page.getByTestId("board-screen")).toBeVisible();
   await expect(page.getByTestId("html-board")).toBeVisible();
+  await expect(page.getByTestId("pr-build-marker")).toContainText(
+    "PR #30 Golden Key visibility-v2",
+  );
   await expect(page.getByTestId("board-space")).toHaveCount(45);
   await expect(page.getByTestId("player-token")).toHaveCount(2);
   await expect(page.getByTestId("board-connection").first()).toBeVisible();
@@ -34,7 +37,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(boardSurface.getByText("Golden Key")).toBeVisible();
   await expect(boardSurface.getByText("Finish")).toBeVisible();
   await expect(page.getByTestId("golden-key-status")).toContainText(
-    "Golden Key: unclaimed",
+    "🔑 Golden Key: unclaimed",
   );
   const goldenKeyTile = page.locator(
     '[data-testid="board-space"][data-space-type="golden-key"]',
@@ -151,7 +154,7 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
   await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
   await expect(page.getByTestId("board-debug")).toContainText(
-    "Golden Key PR build: visibility-v2",
+    "PR #30 Golden Key visibility-v2",
   );
   await expect(page.getByTestId("board-debug")).toContainText("readable-v1");
   await expect(page.getByTestId("board-debug")).toContainText("HTML spaces rendered");

@@ -127,7 +127,7 @@ const HTML_BOARD_TRACKS: readonly (readonly string[])[] = [
   ],
 ];
 
-const GOLDEN_KEY_PR_BUILD_MARKER = "Golden Key PR build: visibility-v2";
+const GOLDEN_KEY_PR_BUILD_MARKER = "PR #30 Golden Key visibility-v2";
 
 export type BoardScreenView = {
   update: (state: GameState) => void;
@@ -176,6 +176,7 @@ export function renderBoardScreen(
           aria-label="Playable Treasure Trek board route"
         ></section>
         <section class="board-status-panel" aria-live="polite">
+          <p class="pr-build-marker" data-testid="pr-build-marker">${GOLDEN_KEY_PR_BUILD_MARKER}</p>
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status data-testid="board-status"></p>
           <p class="board-roll-text" data-board-roll data-testid="board-roll-text"></p>
@@ -1422,8 +1423,8 @@ function getMovingPlayerName(state: GameState): string {
 function renderPlayerCoins(state: GameState): string {
   const keyHolder =
     state.goldenKeyHolderPlayerIndex === null
-      ? "Golden Key: unclaimed"
-      : `Golden Key: ${state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "claimed"}`;
+      ? "🔑 Golden Key: unclaimed"
+      : `🔑 Golden Key: ${state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "claimed"}`;
   const playerCoins = state.players
     .map(
       (player, index) => `
