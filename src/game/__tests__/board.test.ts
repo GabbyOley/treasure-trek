@@ -17,6 +17,7 @@ const REQUIRED_SPACE_TYPES: BoardSpaceType[] = [
   "trap",
   "event",
   "action",
+  "golden-key",
   "finish",
 ];
 
@@ -173,6 +174,18 @@ describe("board data", () => {
     REQUIRED_SPACE_TYPES.forEach((type) => {
       expect(types.has(type)).toBe(true);
     });
+  });
+
+  it("has exactly one Golden Key space on the readable v1 board", () => {
+    const goldenKeySpaces = BOARD_SPACES.filter((space) => space.type === "golden-key");
+
+    expect(goldenKeySpaces).toEqual([
+      expect.objectContaining({
+        id: "river-5",
+        name: "Golden Key Sandbar",
+        region: "River",
+      }),
+    ]);
   });
 
   it("Action spaces can reference valid mini-quest IDs", () => {

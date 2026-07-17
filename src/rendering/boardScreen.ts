@@ -23,7 +23,7 @@ import { BOARD_PLACEHOLDER, PALETTE } from "../utils/constants";
 
 type SpaceStyle = {
   color: number;
-  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "finish";
+  marker: "none" | "coin" | "treasure" | "trap" | "event" | "action" | "key" | "finish";
 };
 
 type PlayerPieceView = {
@@ -37,6 +37,7 @@ type HtmlBoardPoint = {
 };
 
 type BoardDebugInfo = {
+  buildMarker: string;
   boardLayout: string;
   htmlBoardCssSize: string;
   htmlBoardSpaceCount: number;
@@ -44,6 +45,8 @@ type BoardDebugInfo = {
   currentPlayerPositions: string;
   startSpaceId: string;
   finishSpaceId: string;
+  goldenKeySpaceId: string;
+  goldenKeyHolder: string;
   availableBranchChoices: string;
   htmlBoardIntersectsViewport: boolean;
   canvasCssSize: string;
@@ -83,6 +86,10 @@ const SPACE_STYLES: Record<BoardSpaceType, SpaceStyle> = {
     color: PALETTE.mist,
     marker: "action",
   },
+  "golden-key": {
+    color: PALETTE.gold,
+    marker: "key",
+  },
   finish: {
     color: PALETTE.gold,
     marker: "finish",
@@ -119,6 +126,8 @@ const HTML_BOARD_TRACKS: readonly (readonly string[])[] = [
     "finish",
   ],
 ];
+
+const GOLDEN_KEY_PR_BUILD_MARKER = "PR #30 Golden Key visibility-v2";
 
 export type BoardScreenView = {
   update: (state: GameState) => void;
@@ -167,6 +176,7 @@ export function renderBoardScreen(
           aria-label="Playable Treasure Trek board route"
         ></section>
         <section class="board-status-panel" aria-live="polite">
+          <p class="pr-build-marker" data-testid="pr-build-marker">${GOLDEN_KEY_PR_BUILD_MARKER}</p>
           <p class="board-status-label">Board Turn</p>
           <p class="board-status-text" data-board-status data-testid="board-status"></p>
           <p class="board-roll-text" data-board-roll data-testid="board-roll-text"></p>
@@ -486,6 +496,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       canvasRect.top < viewportHeight;
 
     return {
+      buildMarker: GOLDEN_KEY_PR_BUILD_MARKER,
       boardLayout: "readable-v1",
       htmlBoardCssSize: "not used by legacy Three helper",
       htmlBoardSpaceCount: BOARD_SPACES.length,
@@ -493,6 +504,8 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       currentPlayerPositions: "not used by legacy Three helper",
       startSpaceId: START_SPACE_ID,
       finishSpaceId: FINISH_SPACE_ID,
+      goldenKeySpaceId: "river-5",
+      goldenKeyHolder: "not used by legacy Three helper",
       availableBranchChoices: "not used by legacy Three helper",
       htmlBoardIntersectsViewport: false,
       canvasCssSize: `${formatDebugNumber(canvasRect.width)} x ${formatDebugNumber(
@@ -962,6 +975,10 @@ function renderHtmlBoard(state: GameState): string {
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
     const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
     const label = getHtmlBoardLabel(space.id);
+    const keyMarker =
+      space.type === "golden-key"
+        ? `<span class="html-board-key-marker" data-testid="golden-key-space">🔑 KEY</span>`
+        : "";
 
     return `
       <div
@@ -973,6 +990,7 @@ function renderHtmlBoard(state: GameState): string {
         aria-label="${space.region}: ${space.name} (${space.type})"
         style="left: ${point.x}%; top: ${point.y}%;"
       >
+        ${keyMarker}
         ${label === "" ? "" : `<span class="html-board-space-label">${label}</span>`}
       </div>
     `;
@@ -1084,6 +1102,8 @@ function getHtmlBoardLabel(spaceId: string): string {
       return "Pond";
     case "river-2":
       return "River";
+    case "river-5":
+      return "Golden Key";
     case "shipwreck-2":
       return "Shipwreck";
     case "finish":
@@ -1154,6 +1174,7 @@ function getHtmlBoardDebugInfo(
     boardRect.top < viewportHeight;
 
   return {
+    buildMarker: GOLDEN_KEY_PR_BUILD_MARKER,
     boardLayout: "readable-v1",
     htmlBoardCssSize: `${formatDebugNumber(boardRect.width)} x ${formatDebugNumber(
       boardRect.height,
@@ -1165,6 +1186,11 @@ function getHtmlBoardDebugInfo(
       .join(", "),
     startSpaceId: START_SPACE_ID,
     finishSpaceId: FINISH_SPACE_ID,
+    goldenKeySpaceId: "river-5",
+    goldenKeyHolder:
+      state.goldenKeyHolderPlayerIndex === null
+        ? "none"
+        : state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "unknown",
     availableBranchChoices:
       state.availableBranchSpaceIds.length === 0
         ? "none"
@@ -1191,6 +1217,7 @@ function renderBoardDebug(info: BoardDebugInfo): string {
     <p class="board-debug-title">Board Visibility Debug</p>
     <p>This panel is only for diagnosing blank-board bugs.</p>
     <dl>
+      <div><dt>Build marker</dt><dd>${info.buildMarker}</dd></div>
       <div><dt>Board layout</dt><dd>${info.boardLayout}</dd></div>
       <div><dt>HTML board CSS size</dt><dd>${info.htmlBoardCssSize}</dd></div>
       <div><dt>HTML board in viewport</dt><dd>${htmlVisibilityLabel}</dd></div>
@@ -1199,6 +1226,8 @@ function renderBoardDebug(info: BoardDebugInfo): string {
       <div><dt>Player positions</dt><dd>${info.currentPlayerPositions}</dd></div>
       <div><dt>Start space ID</dt><dd>${info.startSpaceId}</dd></div>
       <div><dt>Finish space ID</dt><dd>${info.finishSpaceId}</dd></div>
+      <div><dt>Golden Key space ID</dt><dd>${info.goldenKeySpaceId}</dd></div>
+      <div><dt>Golden Key holder</dt><dd>${info.goldenKeyHolder}</dd></div>
       <div><dt>Available branch choices</dt><dd>${info.availableBranchChoices}</dd></div>
       <div><dt>Canvas CSS size</dt><dd>${info.canvasCssSize}</dd></div>
       <div><dt>Canvas buffer size</dt><dd>${info.canvasBufferSize}</dd></div>
@@ -1363,6 +1392,10 @@ function renderGameOver(state: GameState): string {
       `,
     )
     .join("");
+  const finishBonusNote =
+    result.finishBonusAwarded > 0
+      ? `Golden Key bonus: +${result.finishBonusAwarded} coins.`
+      : "No Golden Key finish bonus was awarded.";
 
   return `
     <section class="game-over-panel" aria-label="Game Over final results">
@@ -1370,7 +1403,7 @@ function renderGameOver(state: GameState): string {
       <p class="game-over-detail">${finisherName} reached Finish.</p>
       <p class="game-over-result">${resultText}</p>
       <div class="game-over-totals">${totals}</div>
-      <p class="game-over-note">No finish bonus is awarded in this v1 prototype.</p>
+      <p class="game-over-note">${finishBonusNote}</p>
       <button
         type="button"
         class="shop-action-button primary"
@@ -1388,7 +1421,11 @@ function getMovingPlayerName(state: GameState): string {
 }
 
 function renderPlayerCoins(state: GameState): string {
-  return state.players
+  const keyHolder =
+    state.goldenKeyHolderPlayerIndex === null
+      ? "🔑 Golden Key: unclaimed"
+      : `🔑 Golden Key: ${state.players[state.goldenKeyHolderPlayerIndex]?.name ?? "claimed"}`;
+  const playerCoins = state.players
     .map(
       (player, index) => `
         <p class="player-coin-chip ${index === state.currentPlayerIndex ? "is-active" : ""}">
@@ -1398,6 +1435,8 @@ function renderPlayerCoins(state: GameState): string {
       `,
     )
     .join("");
+
+  return `${playerCoins}<p class="golden-key-chip" data-testid="golden-key-status">${keyHolder}</p>`;
 }
 
 function renderPlayerHands(state: GameState): string {

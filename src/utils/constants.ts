@@ -55,6 +55,8 @@ export const SHOP_PURCHASE_PRICE = 40;
 // Finish placement and Golden Key bonuses are unresolved, so v1 awards no finish bonus.
 export const FINISH_BONUS_V1 = 0;
 
+export const GOLDEN_KEY_FINISH_BONUS = 100;
+
 export const GOLD_MINE_MEDIUM_REWARD_MIN_ROLL = 4;
 
 export const GOLD_MINE_LARGE_REWARD_ROLL = 6;
