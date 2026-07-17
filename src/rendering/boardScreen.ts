@@ -970,6 +970,10 @@ function renderHtmlBoard(state: GameState): string {
     const isChoice = state.availableBranchSpaceIds.includes(space.id);
     const isCurrentPosition = state.players.some((player) => player.positionId === space.id);
     const label = getHtmlBoardLabel(space.id);
+    const keyMarker =
+      space.type === "golden-key"
+        ? `<span class="html-board-key-marker" aria-hidden="true">KEY</span>`
+        : "";
 
     return `
       <div
@@ -981,6 +985,7 @@ function renderHtmlBoard(state: GameState): string {
         aria-label="${space.region}: ${space.name} (${space.type})"
         style="left: ${point.x}%; top: ${point.y}%;"
       >
+        ${keyMarker}
         ${label === "" ? "" : `<span class="html-board-space-label">${label}</span>`}
       </div>
     `;
@@ -1093,7 +1098,7 @@ function getHtmlBoardLabel(spaceId: string): string {
     case "river-2":
       return "River";
     case "river-5":
-      return "Key";
+      return "Golden Key";
     case "shipwreck-2":
       return "Shipwreck";
     case "finish":

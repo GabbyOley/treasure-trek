@@ -31,14 +31,44 @@ test("board opens, renders, and rolls", async ({ page }) => {
   const boardSurface = page.getByTestId("html-board-surface");
 
   await expect(boardSurface.getByText("Start")).toBeVisible();
-  await expect(boardSurface.getByText("Key")).toBeVisible();
+  await expect(boardSurface.getByText("Golden Key")).toBeVisible();
   await expect(boardSurface.getByText("Finish")).toBeVisible();
   await expect(page.getByTestId("golden-key-holder")).toContainText(
     "Golden Key: unclaimed",
   );
+  const goldenKeySpace = page.locator(
+    '[data-testid="board-space"][data-space-type="golden-key"]',
+  );
+  await expect(goldenKeySpace).toHaveCount(1);
+  await expect(goldenKeySpace).toBeVisible();
+  await expect(goldenKeySpace).toContainText("KEY");
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
   const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
+  const goldenKeyBox = await goldenKeySpace.boundingBox();
+  const goldenKeyStyle = await goldenKeySpace.evaluate((space) => {
+    const style = window.getComputedStyle(space);
+
+    return {
+      backgroundImage: style.backgroundImage,
+      boxShadow: style.boxShadow,
+      width: style.width,
+      height: style.height,
+    };
+  });
+  const coinStyle = await page
+    .locator('[data-testid="board-space"][data-space-type="coin"]')
+    .first()
+    .evaluate((space) => {
+      const style = window.getComputedStyle(space);
+
+      return {
+        backgroundImage: style.backgroundImage,
+        boxShadow: style.boxShadow,
+        width: style.width,
+        height: style.height,
+      };
+    });
   const playerTokenBoxes = await page.getByTestId("player-token").evaluateAll((tokens) =>
     tokens.map((token) => token.getBoundingClientRect()).map((box) => ({
       left: box.left,
@@ -53,6 +83,9 @@ test("board opens, renders, and rolls", async ({ page }) => {
   expect(boardBox?.height ?? 0).toBeGreaterThan(300);
   expect(firstSpaceBox?.width ?? 0).toBeGreaterThanOrEqual(20);
   expect(firstSpaceBox?.height ?? 0).toBeGreaterThanOrEqual(20);
+  expect(goldenKeyBox?.width ?? 0).toBeGreaterThan(firstSpaceBox?.width ?? 0);
+  expect(goldenKeyBox?.height ?? 0).toBeGreaterThan(firstSpaceBox?.height ?? 0);
+  expect(goldenKeyStyle).not.toEqual(coinStyle);
   expect(playerTokenBoxes).toHaveLength(2);
 
   if (viewport !== null && firstSpaceBox !== null) {
@@ -60,6 +93,13 @@ test("board opens, renders, and rolls", async ({ page }) => {
     expect(firstSpaceBox.y).toBeGreaterThanOrEqual(0);
     expect(firstSpaceBox.x + firstSpaceBox.width).toBeLessThanOrEqual(viewport.width);
     expect(firstSpaceBox.y + firstSpaceBox.height).toBeLessThanOrEqual(viewport.height);
+  }
+
+  if (viewport !== null && goldenKeyBox !== null) {
+    expect(goldenKeyBox.x).toBeGreaterThanOrEqual(0);
+    expect(goldenKeyBox.y).toBeGreaterThanOrEqual(0);
+    expect(goldenKeyBox.x + goldenKeyBox.width).toBeLessThanOrEqual(viewport.width);
+    expect(goldenKeyBox.y + goldenKeyBox.height).toBeLessThanOrEqual(viewport.height);
   }
 
   playerTokenBoxes.forEach((box) => {
