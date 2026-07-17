@@ -37,6 +37,7 @@ type HtmlBoardPoint = {
 };
 
 type BoardDebugInfo = {
+  buildMarker: string;
   boardLayout: string;
   htmlBoardCssSize: string;
   htmlBoardSpaceCount: number;
@@ -125,6 +126,8 @@ const HTML_BOARD_TRACKS: readonly (readonly string[])[] = [
     "finish",
   ],
 ];
+
+const GOLDEN_KEY_PR_BUILD_MARKER = "Golden Key PR build: visibility-v2";
 
 export type BoardScreenView = {
   update: (state: GameState) => void;
@@ -492,6 +495,7 @@ function createBoardScene(container: HTMLDivElement, state: GameState): BoardScr
       canvasRect.top < viewportHeight;
 
     return {
+      buildMarker: GOLDEN_KEY_PR_BUILD_MARKER,
       boardLayout: "readable-v1",
       htmlBoardCssSize: "not used by legacy Three helper",
       htmlBoardSpaceCount: BOARD_SPACES.length,
@@ -972,7 +976,7 @@ function renderHtmlBoard(state: GameState): string {
     const label = getHtmlBoardLabel(space.id);
     const keyMarker =
       space.type === "golden-key"
-        ? `<span class="html-board-key-marker" aria-hidden="true">KEY</span>`
+        ? `<span class="html-board-key-marker" data-testid="golden-key-space">🔑 KEY</span>`
         : "";
 
     return `
@@ -1169,6 +1173,7 @@ function getHtmlBoardDebugInfo(
     boardRect.top < viewportHeight;
 
   return {
+    buildMarker: GOLDEN_KEY_PR_BUILD_MARKER,
     boardLayout: "readable-v1",
     htmlBoardCssSize: `${formatDebugNumber(boardRect.width)} x ${formatDebugNumber(
       boardRect.height,
@@ -1211,6 +1216,7 @@ function renderBoardDebug(info: BoardDebugInfo): string {
     <p class="board-debug-title">Board Visibility Debug</p>
     <p>This panel is only for diagnosing blank-board bugs.</p>
     <dl>
+      <div><dt>Build marker</dt><dd>${info.buildMarker}</dd></div>
       <div><dt>Board layout</dt><dd>${info.boardLayout}</dd></div>
       <div><dt>HTML board CSS size</dt><dd>${info.htmlBoardCssSize}</dd></div>
       <div><dt>HTML board in viewport</dt><dd>${htmlVisibilityLabel}</dd></div>
@@ -1429,7 +1435,7 @@ function renderPlayerCoins(state: GameState): string {
     )
     .join("");
 
-  return `${playerCoins}<p class="golden-key-chip" data-testid="golden-key-holder">${keyHolder}</p>`;
+  return `${playerCoins}<p class="golden-key-chip" data-testid="golden-key-status">${keyHolder}</p>`;
 }
 
 function renderPlayerHands(state: GameState): string {

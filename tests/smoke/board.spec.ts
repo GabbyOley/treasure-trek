@@ -33,20 +33,22 @@ test("board opens, renders, and rolls", async ({ page }) => {
   await expect(boardSurface.getByText("Start")).toBeVisible();
   await expect(boardSurface.getByText("Golden Key")).toBeVisible();
   await expect(boardSurface.getByText("Finish")).toBeVisible();
-  await expect(page.getByTestId("golden-key-holder")).toContainText(
+  await expect(page.getByTestId("golden-key-status")).toContainText(
     "Golden Key: unclaimed",
   );
-  const goldenKeySpace = page.locator(
+  const goldenKeyTile = page.locator(
     '[data-testid="board-space"][data-space-type="golden-key"]',
   );
-  await expect(goldenKeySpace).toHaveCount(1);
+  const goldenKeySpace = page.getByTestId("golden-key-space");
+  await expect(goldenKeyTile).toHaveCount(1);
+  await expect(goldenKeyTile).toBeVisible();
   await expect(goldenKeySpace).toBeVisible();
-  await expect(goldenKeySpace).toContainText("KEY");
+  await expect(goldenKeySpace).toContainText("🔑 KEY");
 
   const boardBox = await page.getByTestId("html-board").boundingBox();
   const firstSpaceBox = await page.getByTestId("board-space").first().boundingBox();
-  const goldenKeyBox = await goldenKeySpace.boundingBox();
-  const goldenKeyStyle = await goldenKeySpace.evaluate((space) => {
+  const goldenKeyBox = await goldenKeyTile.boundingBox();
+  const goldenKeyStyle = await goldenKeyTile.evaluate((space) => {
     const style = window.getComputedStyle(space);
 
     return {
@@ -148,6 +150,9 @@ test("board opens, renders, and rolls", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle board visibility debug details" }).click();
   await expect(page.getByTestId("board-debug")).toContainText("Board Visibility Debug");
+  await expect(page.getByTestId("board-debug")).toContainText(
+    "Golden Key PR build: visibility-v2",
+  );
   await expect(page.getByTestId("board-debug")).toContainText("readable-v1");
   await expect(page.getByTestId("board-debug")).toContainText("HTML spaces rendered");
   await expect(page.getByTestId("board-debug")).toContainText("HTML players rendered");
